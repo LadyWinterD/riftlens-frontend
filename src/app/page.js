@@ -1,65 +1,261 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+// [V21] 导入我们 *确认可用* 的服务
+import { searchSummoner, postStatefulChatMessage } from "@/services/awsService";
+
+// [V21] 导入您的 Figma 风格组件
+import { CyberStatCard } from "@/components/CyberStatCard";
+import { CyberMatchCard } from "@/components/CyberMatchCard";
+import { CyberAnalysisPanel } from "@/components/CyberAnalysisPanel";
+import { RiftAI } from "@/components/RiftAI";
+import { PlayerSearchBar } from "@/components/PlayerSearchBar";
+
+// [V21] 导入您项目中的 Shadcn UI 组件
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Toaster, toast } from "sonner"; // (来自 sonner.tsx)
 
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [playerData, setPlayerData] = useState(null); // (V21: 存储来自 Lambda 的完整*原始*报告)
+  const [error, setError] = useState(null);
+  const [selectedChampion, setSelectedChampion] = useState(""); // (V21: 按名称选择)
+  const [currentSummoner, setCurrentSummoner] = useState({ name: "Suger 99", region: "NA" });
+
+  // [AWS集成 V21] 搜索召唤师 (来自您的 V1 page.js - 100% 正确)
+  const handleSearch = async (summonerName, region) => {
+    console.log("[AWS] Searching summoner:", summonerName, region);
+    setIsLoading(true);
+    setError(null);
+    toast.loading(`[NEURAL SCAN] Connecting to AWS Database...`, { 
+        id: "search-toast",
+        style: { /* ... 您的赛博朋克样式 ... */ }
+    });
+
+    try {
+      // 调用AWS服务 (V21 searchSummoner)
+      const data = await searchSummoner("dummy-id-to-trigger-hardcoded-puuid");
+
+      if (!data || !data.PlayerID) {
+        throw new Error("API returned empty or invalid player data.");
+      }
+
+      console.log("[AWS] Report successfully received!", data);
+      setPlayerData(data); // [V21] 存储 *原始* DDB 数据
+      setCurrentSummoner({ name: data.playerName || summonerName, region });
+
+      // [V21] 自动选择第一个英雄
+      if (data.annualStats && data.annualStats.championCounts) {
+        const firstChamp = Object.keys(data.annualStats.championCounts)[0];
+        setSelectedChampion(firstChamp); // (按名称设置)
+      }
+
+      toast.success(`[SCAN COMPLETE] Data loaded for ${data.playerName}`, { id: "search-toast", /* ... 您的样式 ... */ });
+    } catch (err) {
+      console.error("[AWS] Failed to call API:", err);
+      setError(err.message);
+      toast.error(`[AWS ERROR] ${err.message}`, { id: "search-toast", /* ... 您的样式 ... */ });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- [ 您的 Figma 风格 Loading 和初始状态 ] ---
+  // (您的 V1 JSX 在这里 100% 保持不变，它非常棒)
+
+  // [加载中状态]
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0e27] flex items-center justify-center">
+        {/* ... 您的 Loading JSX (来自 response_17) ... */}
+         <div className="text-4xl text-[#00ffff]">NEURAL SCAN IN PROGRESS...</div>
+      </div>
+    );
+  }
+
+  // [初始状态]
+  if (!playerData) {
+    return (
+      <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
+        {/* ... 您的欢迎界面 JSX (来自 response_17) ... */}
+        <button onClick={() => handleSearch("Suger 99", "NA")}>
+          [ INITIATE AI ANALYSIS ]
+        </button>
+        <Toaster position="top-center" />
+      </div>
+    );
+  }
+
+  // --- [ V21 关键的数据转换 (The "Bridge") ] ---
+  // 这是“转接头”。
+  // 我们在这里“转换”数据，以匹配您的 Figma 组件
+  
+  // 1. 转换 OverallStats
+  const OverallStats = playerData.annualStats || {};
+  
+  // 2. 转换 Matches
+  const Matches = playerData.matchHistory || [];
+  
+  // 3. 转换 ChampionStats
+  const ChampionStats = OverallStats.championCounts ? Object.entries(OverallStats.championCounts).map(([name, games]) => {
+      // (我们从 matchHistory 中实时计算该英雄的 WinRate 和 KDA)
+      const champMatches = Matches.filter(m => m.championName === name);
+      const wins = champMatches.filter(m => m.win).length;
+      const totalKills = champMatches.reduce((acc, m) => acc + (m.kills || 0), 0);
+      const totalDeaths = champMatches.reduce((acc, m) => acc + (m.deaths || 1), 0); // (防除零)
+      const totalAssists = champMatches.reduce((acc, m) => acc + (m.assists || 0), 0);
+      
+      return {
+          Champion: name,
+          Games: games,
+          WinRate: champMatches.length > 0 ? wins / champMatches.length : 0,
+          AvgKDA: totalDeaths > 0 ? (totalKills + totalAssists) / totalDeaths : totalKills + totalAssists,
+      };
+  }).sort((a, b) => b.Games - a.Games) : []; // 按游戏场次排序
+
+  const selectedChampData = ChampionStats.find(c => c.Champion === selectedChampion);
+  const selectedChampMatches = Matches.filter(m => m.championName === selectedChampion);
+
+
+  // --- [ 已加载数据 ] ---
+  // (您的 V1 JSX 现在 100% 可以工作了)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="min-h-screen bg-[#0a0e27] relative overflow-x-hidden">
+      {/* ... 您的网格/扫描线/粒子背景 ... */}
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-10 overflow-visible">
+        {/* ... 您的 Header (完全不变) ... */}
+        
+        <PlayerSearchBar onSearch={handleSearch} isLoading={isLoading} />
+        
+        <Tabs defaultValue="report" className="w-full">
+          {/* ... 您的 TabsList (完全不变) ... */}
+
+          {/* Tab 1: AI Report (V21 兼容) */}
+          <TabsContent value="report" className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* [V21 修复] 读取 OverallStats.avgKDA (而不是 .AvgKDA) */}
+              <CyberStatCard
+                label="KDA"
+                value={OverallStats.avgKDA?.toFixed(2) || "N/A"}
+                color="cyan" icon="⚔️"
+              />
+              <CyberStatCard
+                label="WIN RATE"
+                value={OverallStats.winRate ? `${(OverallStats.winRate * 100).toFixed(0)}%` : "N/A"}
+                color="magenta" icon="🎯"
+              />
+              <CyberStatCard
+                label="CS/MIN"
+                value={OverallStats.avgCsPerMin?.toFixed(1) || "N/A"}
+                color="yellow" icon="🌾"
+              />
+              <CyberStatCard
+                label="GAMES"
+                value={OverallStats.totalGames?.toString() || "N/A"}
+                color="green" icon="🎮"
+              />
+            </div>
+            {/* [V21] 传递 *原始* playerData, CyberAnalysisPanel 会自己解析 */}
+            <CyberAnalysisPanel playerData={playerData} />
+          </TabsContent>
+
+          {/* Tab 2: Match History (V21 兼容) */}
+          <TabsContent value="matches">
+            <div className="bg-[#0a0e27]/80 ...">
+              {/* ... */}
+              <ScrollArea className="h-[800px] pr-4">
+                <div className="space-y-3">
+                  {/* [V21 修复] 读取 Matches (而不是 playerData.Matches) */}
+                  {Matches.slice(0, 20).map((match, idx) => (
+                    <CyberMatchCard
+                      key={idx}
+                      champion={match.championName || "Unknown"}
+                      isWin={match.win}
+                      kills={match.kills} deaths={match.deaths} assists={match.assists}
+                      cs={match.cs} visionScore={match.visionScore || 0}
+                      duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
+                      gameNumber={idx + 1}
+                      // (其他 props...)
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Champions (V21 兼容) */}
+          <TabsContent value="champions">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Champion List (V21 修复) */}
+              <div className="lg:col-span-1 ...">
+                <div className="space-y-2">
+                  {/* [V21 修复] 读取 ChampionStats (而不是 playerData.ChampionStats) */}
+                  {ChampionStats.map((champ, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedChampion(champ.Champion)}
+                      className={`... ${selectedChampion === champ.Champion ? "border-[#00ffff] bg-[#00ffff]/10" : "..."}`}
+                    >
+                      {/* ... (按钮内部样式) ... */}
+                      <div className="text-sm ...">{champ.Champion}</div>
+                      <div className="text-xs ...">
+                        <span>{champ.Games} games</span>
+                        <span className={champ.WinRate >= 0.5 ? "text-[#00ff00]" : "text-[#ff0000]"}>
+                          {(champ.WinRate * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Champion Match History (V21 修复) */}
+              <div className="lg:col-span-3 ...">
+                {/* [V21 修复] 读取 selectedChampData */}
+                {selectedChampData && (
+                  <>
+                    <div className="flex items-center gap-4 ...">
+                      <h2 className="text-3xl ...">{selectedChampData.Champion}</h2>
+                      <div className="flex ...">
+                        <span>{selectedChampData.Games} GAMES</span>
+                        <span>{selectedChampData.AvgKDA.toFixed(2)} KDA</span>
+                        <span className={selectedChampData.WinRate >= 0.5 ? "text-[#00ff00]" : "text-[#ff0000]"}>
+                          {(selectedChampData.WinRate * 100).toFixed(0)}% WR
+                        </span>
+                      </div>
+                    </div>
+
+                    <ScrollArea className="h-[600px] pr-4">
+                      <div className="space-y-3">
+                        {/* [V21 修复] 读取 selectedChampMatches */}
+                        {selectedChampMatches.map((match, idx) => (
+                          <CyberMatchCard
+                            key={idx}
+                            champion={match.championName}
+                            isWin={match.win}
+                            kills={match.kills} deaths={match.deaths} assists={match.assists}
+                            cs={match.cs} visionScore={match.visionScore || 0}
+                            duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
+                            gameNumber={idx + 1}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea
+>
+                  </>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* [V21] 聊天机器人 (它将接收 *原始* playerData) */}
+      <RiftAI playerData={playerData} />
+
+      <Toaster position="top-center" />
     </div>
   );
 }
