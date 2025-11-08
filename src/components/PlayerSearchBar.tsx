@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Loader2, Globe, ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SearchHistory {
   summonerName: string;
@@ -87,7 +87,7 @@ export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBar
       
       // Combine history and popular summoners
       const historyNames = searchHistory.map(h => h.summonerName);
-      const allNames = [...new Set([...historyNames, ...POPULAR_SUMMONERS])];
+      const allNames = Array.from(new Set([...historyNames, ...POPULAR_SUMMONERS]));
       
       const filtered = allNames
         .filter(name => name.toLowerCase().startsWith(lowerInput))

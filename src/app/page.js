@@ -142,8 +142,14 @@ export default function Home() {
   // 这是“转接头”。
   // 我们在这里“转换”数据，以匹配您的 Figma 组件
   
-  // 1. 转换 OverallStats
-  const OverallStats = playerData.annualStats || {};
+  // 1. 转换 OverallStats (修复字段名称匹配)
+  const OverallStats = {
+    avgKDA: playerData.annualStats?.avgKDA || 0,
+    winRate: playerData.annualStats?.winRate || 0,
+    avgCsPerMin: playerData.annualStats?.avgCsPerMin || 0,
+    totalGames: playerData.annualStats?.totalGames || 0,
+    championCounts: playerData.annualStats?.championCounts || {}
+  };
   
   // 2. 转换 Matches
   const Matches = playerData.matchHistory || [];
@@ -223,12 +229,14 @@ export default function Home() {
                     <CyberMatchCard
                       key={idx}
                       champion={match.championName || "Unknown"}
+                      championIcon="🎮"
                       isWin={match.win}
                       kills={match.kills} deaths={match.deaths} assists={match.assists}
                       cs={match.cs} visionScore={match.visionScore || 0}
+                      items={match.items || ["⚔️", "🛡️", "👢", "💎", "🔮", "⭐"]}
+                      rune="🔥"
                       duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
                       gameNumber={idx + 1}
-                      // (其他 props...)
                     />
                   ))}
                 </div>
@@ -285,9 +293,12 @@ export default function Home() {
                           <CyberMatchCard
                             key={idx}
                             champion={match.championName}
+                            championIcon="🎮"
                             isWin={match.win}
                             kills={match.kills} deaths={match.deaths} assists={match.assists}
                             cs={match.cs} visionScore={match.visionScore || 0}
+                            items={match.items || ["⚔️", "🛡️", "👢", "💎", "🔮", "⭐"]}
+                            rune="🔥"
                             duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
                             gameNumber={idx + 1}
                           />

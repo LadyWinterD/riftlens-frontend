@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import * as RechartsPrimitive from "recharts@2.15.2";
+import * as RechartsPrimitive from "recharts";
 
 import { cn } from "./utils";
 
@@ -118,11 +118,18 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-  React.ComponentProps<"div"> & {
+}: {
+    active?: boolean;
+    payload?: any[];
+    className?: string;
+    indicator?: "line" | "dot" | "dashed";
     hideLabel?: boolean;
     hideIndicator?: boolean;
-    indicator?: "line" | "dot" | "dashed";
+    label?: string;
+    labelFormatter?: (label: any, payload: any[]) => React.ReactNode;
+    labelClassName?: string;
+    formatter?: (value: any, name: any, props: any) => React.ReactNode;
+    color?: string;
     nameKey?: string;
     labelKey?: string;
   }) {
@@ -193,7 +200,7 @@ function ChartTooltipContent({
               )}
             >
               {formatter && item?.value !== undefined && item.name ? (
-                formatter(item.value, item.name, item, index, item.payload)
+                formatter(item.value, item.name, item)
               ) : (
                 <>
                   {itemConfig?.icon ? (
@@ -256,8 +263,9 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+}: React.ComponentProps<"div"> & {
+    payload?: any[];
+    verticalAlign?: string;
     hideIcon?: boolean;
     nameKey?: string;
   }) {
