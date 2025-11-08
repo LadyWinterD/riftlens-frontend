@@ -12,6 +12,7 @@ import MainAIButton from './MainAIButton';
 import SubAIModule from './SubAIModule';
 import CyberChatMessage from './CyberChatMessage';
 import CyberTypingIndicator from './CyberTypingIndicator';
+import { AIChatResponseModal } from './AIChatResponseModal';
 
 // (从您的 V1 蓝图复制)
 const AI_PERSONALITIES = {
@@ -84,7 +85,13 @@ export function RiftAI({ playerData }: RiftAIProps) {
   // [V21 关键状态]
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [customQuestion, setCustomQuestion] = useState(''); 
+  const [customQuestion, setCustomQuestion] = useState('');
+  
+  // [!! 新增 !!] 弹窗状态
+  const [responseModalOpen, setResponseModalOpen] = useState(false);
+  const [modalQuestion, setModalQuestion] = useState('');
+  const [modalAnswer, setModalAnswer] = useState('');
+  const [modalProcessing, setModalProcessing] = useState(false); 
 
   // (V1 Sub-AI states 保持不变)
   const [combatAIVisible, setCombatAIVisible] = useState(false);
@@ -125,20 +132,42 @@ export function RiftAI({ playerData }: RiftAIProps) {
   }, [playerData]);
 
   // [!! V21 关键 !!]
-  // 当 'playerData' 从 page.js 传入时，初始化聊天
+  // 当 'playerData' 从 page.js 传入时，初始化聊天历史（但不自动打开）
   useEffect(() => {
-    if (playerData && playerData.aiAnalysis_DefaultRoast) {
-      setChatHistory([
-        { role: 'assistant', content: playerData.aiAnalysis_DefaultRoast }
-      ]);
-      setIsMainOpen(true); // 自动打开聊天窗口
+    if (playerData) {
+      console.log('[RiftAI] playerData received:', {
+        hasPlayerID: !!playerData.PlayerID,
+        PlayerID: playerData.PlayerID,
+        hasDefaultRoast: !!playerData.aiAnalysis_DefaultRoast
+      });
+      
+      if (playerData.aiAnalysis_DefaultRoast) {
+        setChatHistory([
+          { role: 'assistant', content: playerData.aiAnalysis_DefaultRoast }
+        ]);
+        // 移除自动打开：用户需要点击 AI 头像才会打开
+        // setIsMainOpen(true);
+      }
     }
   }, [playerData]); 
 
   // [!! V21 核心 !!]
   // V21 的"主发送函数"
   const handleSendMessage = async (message: string) => {
-    if (isProcessing || !message || !playerData) return;
+    if (isProcessing || !message || !playerData) {
+      console.log('[RiftAI] Cannot send message:', { isProcessing, hasMessage: !!message, hasPlayerData: !!playerData });
+      return;
+    }
+
+    console.log('[RiftAI] Sending message:', message);
+    console.log('[RiftAI] Using PlayerID:', playerData.PlayerID);
+    console.log('[RiftAI] Current chat history length:', chatHistory.length);
+
+    // [!! 新增 !!] 打开弹窗并显示加载状态
+    setModalQuestion(message);
+    setModalAnswer('');
+    setModalProcessing(true);
+    setResponseModalOpen(true);
 
     const newUserMessage: ChatMessage = { role: 'user', content: message };
     const updatedHistory = [...chatHistory, newUserMessage]; 
@@ -147,20 +176,35 @@ export function RiftAI({ playerData }: RiftAIProps) {
     setIsProcessing(true);
 
     try {
-      // 3. [!! 核心 V21 !!] 调用我们的 "有状态" 聊天 API
+      // [!! 核心 V21 !!] 调用 "有状态" 聊天 API
+      // 注意: 传递 chatHistory (不包含当前消息), Lambda 会添加当前消息
+      // 传递完整的 playerData 以兼容旧 Lambda
       const aiResponse = await postStatefulChatMessage(
         playerData.PlayerID, 
         message,
-        updatedHistory 
+        chatHistory, // 传递之前的历史记录，不包含当前用户消息
+        playerData   // 传递完整的玩家数据
       );
+      
+      // [!! 新增 !!] 更新弹窗显示 AI 回答
+      setModalAnswer(aiResponse);
+      setModalProcessing(false);
+      
       setChatHistory([
         ...updatedHistory,
         { role: 'assistant', content: aiResponse }
       ]);
     } catch (error: any) {
+      // 错误处理: 显示错误但不添加失败的消息到历史
+      const errorMsg = `[AI OFFLINE] ${error.message}`;
+      
+      // [!! 新增 !!] 在弹窗中显示错误
+      setModalAnswer(errorMsg);
+      setModalProcessing(false);
+      
       setChatHistory([
         ...updatedHistory,
-        { role: 'error', content: `[AI OFFLINE] ${error.message}` }
+        { role: 'error', content: errorMsg }
       ]);
     } finally {
       setIsProcessing(false);
@@ -176,6 +220,12 @@ export function RiftAI({ playerData }: RiftAIProps) {
   // [V21] 自由聊天 (现在调用 *真实* AI)
   const handleCustomQuestionSubmit = () => {
     handleSendMessage(customQuestion);
+  };
+  
+  // [!! 新增 !!] 弹窗关闭处理
+  const handleModalClose = () => {
+    setResponseModalOpen(false);
+    // 聊天历史已经在 handleSendMessage 中更新
   };
 
   // [V1 - 保持不变] 深度分析
@@ -203,6 +253,15 @@ export function RiftAI({ playerData }: RiftAIProps) {
   // --- [ 您的 V1 Figma 蓝图 JSX ] ---
   return (
     <>
+      {/* [!! 新增 !!] AI 回答弹窗 */}
+      <AIChatResponseModal
+        isOpen={responseModalOpen}
+        onClose={handleModalClose}
+        question={modalQuestion}
+        answer={modalAnswer}
+        isProcessing={modalProcessing}
+      />
+      
       <AIDeepAnalysis
         isOpen={deepAnalysisOpen}
         onClose={() => setDeepAnalysisOpen(false)}

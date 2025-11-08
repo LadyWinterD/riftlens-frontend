@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
 // [V21] 导入我们 *确认可用* 的服务
-import { searchSummoner, postStatefulChatMessage } from "@/services/awsService";
+import { searchSummoner } from "@/services/awsService";
 import playerManifest from '../../player_manifest.json';
 // [V21] 导入您的 Figma 风格组件
 import { CyberStatCard } from "@/components/CyberStatCard";
@@ -10,25 +11,65 @@ import { CyberMatchCard } from "@/components/CyberMatchCard";
 import { CyberAnalysisPanel } from "@/components/CyberAnalysisPanel";
 import { RiftAI } from "@/components/RiftAI";
 import { PlayerSearchBar } from "@/components/PlayerSearchBar";
+import { CyberLoadingScreen } from "@/components/CyberLoadingScreen";
 
 // [V21] 导入您项目中的 Shadcn UI 组件
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster, toast } from "sonner"; // (来自 sonner.tsx)
 
+// Data Dragon CDN版本
+const DD_VERSION = '14.1.1';
+const DD_CDN = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}`;
+
 export default function Home() {
+  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [playerData, setPlayerData] = useState(null); // (V21: 存储来自 Lambda 的完整*原始*报告)
-  const [error, setError] = useState(null);
   const [selectedChampion, setSelectedChampion] = useState(""); // (V21: 按名称选择)
-  const [currentSummoner, setCurrentSummoner] = useState({ name: "Suger 99", region: "NA" });
+  const [currentSummoner, setCurrentSummoner] = useState({ name: "Suger 99", region: "EUW" });
+
+  const handleLoadingComplete = () => {
+    setShowLoadingScreen(false);
+  };
+
+  const handleLoadingSearch = async (summonerName, region) => {
+    // 从加载界面搜索
+    setCurrentSummoner({ name: summonerName, region });
+    setShowLoadingScreen(false);
+    toast.success(`[SCAN COMPLETE] Loading data for ${summonerName} (${region})`, {
+      style: {
+        background: "#0a0e27",
+        border: "2px solid #00ff00",
+        color: "#00ffff",
+        fontFamily: "monospace",
+      },
+    });
+    // 调用实际搜索
+    await handleSearch(summonerName, region);
+  };
+
+  const handleDemoMode = () => {
+    // 使用演示数据
+    setCurrentSummoner({ name: "Demo Player", region: "DEMO" });
+    setShowLoadingScreen(false);
+    toast.success('[DEMO MODE] Sample dashboard loaded successfully!', {
+      style: {
+        background: "#0a0e27",
+        border: "2px solid #ffff00",
+        color: "#ffff00",
+        fontFamily: "monospace",
+      },
+    });
+    // 调用实际搜索演示数据
+    handleSearch("Suger 99", "EUW");
+  };
 
   // [!! V21 关键修复 !!] 
   // 这是我们新的 handleSearch 逻辑
   const handleSearch = async (summonerName, region) => {
     console.log("[AWS] Searching summoner:", summonerName, region);
     setIsLoading(true);
-    setError(null);
     toast.loading(`[NEURAL SCAN] Connecting to local manifest...`, {
       id: "search-toast",
       style: {
@@ -42,13 +83,20 @@ export default function Home() {
     // 1. [本地查找 PUUID]
     // (注意：您的 manifest 使用 'displayName' 和 'name')
     const foundPlayer = playerManifest.find(
-      (player) => (player.displayName || player.name).toLowerCase() === summonerName.toLowerCase()
+      (player) => {
+        const playerName = player.name.toLowerCase();
+        const searchName = summonerName.toLowerCase();
+        // 精确匹配 name 字段
+        return playerName === searchName;
+      }
     );
 
+    console.log(`[LOCAL] Searching for: "${summonerName}"`);
+    console.log(`[LOCAL] Found player:`, foundPlayer);
+
     if (!foundPlayer) {
-      const errorMsg = `[LOCAL ERROR] Summoner "${summonerName}" not found in local manifest.`;
+      const errorMsg = `[LOCAL ERROR] Summoner "${summonerName}" not found in local manifest. Total players: ${playerManifest.length}`;
       console.error(errorMsg);
-      setError(errorMsg);
       toast.error(errorMsg, {
         id: "search-toast",
         style: {
@@ -72,11 +120,26 @@ export default function Home() {
     try {
       const data = await searchSummoner(puuid); 
 
-      if (!data || !data.PlayerID) {
-        throw new Error("API returned empty or invalid player data.");
+      if (!data) {
+        throw new Error("API returned empty data.");
       }
 
       console.log("[AWS] Report successfully received!", data);
+      console.log("[AWS] Data keys:", Object.keys(data));
+      console.log("[AWS] annualStats:", data.annualStats);
+      console.log("[AWS] avgKDA type:", typeof data.annualStats?.avgKDA);
+      
+      // 标准化 PlayerID 字段名（可能是 PlayerID, playerId, 或 playerID）
+      if (!data.PlayerID && !data.playerId && !data.playerID) {
+        console.warn("[AWS] No PlayerID field found, using PUUID as fallback");
+        data.PlayerID = puuid;
+      } else if (data.playerId) {
+        data.PlayerID = data.playerId;
+      } else if (data.playerID) {
+        data.PlayerID = data.playerID;
+      }
+      
+      console.log("[AWS] Using PlayerID:", data.PlayerID);
       setPlayerData(data); // 存储 *原始* DDB 数据
       setCurrentSummoner({ name: data.playerName || summonerName, region });
 
@@ -97,7 +160,6 @@ export default function Home() {
       });
     } catch (err) {
       console.error("[AWS] Failed to call API:", err);
-      setError(err.message);
       toast.error(`[AWS ERROR] ${err.message}`, { 
         id: "search-toast",
         style: {
@@ -112,44 +174,91 @@ export default function Home() {
     }
   };
 
-  // --- [ 您的 Figma 风格 Loading 和初始状态 ] ---
-  // (您的 V1 JSX 在这里 100% 保持不变，它非常棒)
+  // --- [ 加载界面 ] ---
+  return (
+    <>
+      {/* Loading Screen */}
+      <AnimatePresence>
+        {showLoadingScreen && (
+          <CyberLoadingScreen
+            onLoadingComplete={handleLoadingComplete}
+            onSearch={handleLoadingSearch}
+            onDemoMode={handleDemoMode}
+            minLoadingTime={3500}
+          />
+        )}
+      </AnimatePresence>
 
-  // [加载中状态]
-  if (isLoading) {
+      {/* Main App */}
+      {!showLoadingScreen && renderMainApp()}
+      
+      <Toaster position="top-center" />
+    </>
+  );
+
+  function renderMainApp() {
+    // [加载中状态]
+    if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0e27] flex items-center justify-center">
-        {/* ... 您的 Loading JSX (来自 response_17) ... */}
-         <div className="text-4xl text-[#00ffff]">NEURAL SCAN IN PROGRESS...</div>
+      <div className="min-h-screen bg-[#0a0e27] flex items-center justify-center relative overflow-hidden">
+        {/* Animated Grid */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute inset-0 animate-pulse" style={{
+            backgroundImage: 'linear-gradient(#00ffff 1px, transparent 1px), linear-gradient(90deg, #00ffff 1px, transparent 1px)',
+            backgroundSize: '50px 50px'
+          }} />
+        </div>
+
+        {/* Scanlines */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #00ffff 2px, #00ffff 4px)',
+          animation: 'scanlines 8s linear infinite'
+        }} />
+
+        {/* Loading Content */}
+        <div className="relative z-10 text-center">
+          <div className="text-6xl mb-8 animate-pulse">🔍</div>
+          <div className="text-4xl text-[#00ffff] font-mono mb-4" style={{
+            textShadow: '0 0 20px #00ffff'
+          }}>
+            NEURAL SCAN IN PROGRESS
+          </div>
+          <div className="flex items-center justify-center gap-2 text-[#ff00ff] font-mono">
+            <span className="animate-pulse">▓</span>
+            <span className="animate-pulse delay-100">▓</span>
+            <span className="animate-pulse delay-200">▓</span>
+            <span className="text-[#666]">ANALYZING PLAYER DATA</span>
+            <span className="animate-pulse delay-200">▓</span>
+            <span className="animate-pulse delay-100">▓</span>
+            <span className="animate-pulse">▓</span>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // [初始状态]
-  if (!playerData) {
-    return (
-      <div className="min-h-screen bg-[#0a0e27] relative overflow-hidden">
-        {/* ... 您的欢迎界面 JSX (来自 response_17) ... */}
-        <button onClick={() => handleSearch("Suger 99", "NA")}>
-          [ INITIATE AI ANALYSIS ]
-        </button>
-        <Toaster position="top-center" />
-      </div>
-    );
-  }
+    // [初始状态] - 现在由加载界面处理
+    if (!playerData) {
+      return null;
+    }
 
   // --- [ V21 关键的数据转换 (The "Bridge") ] ---
   // 这是“转接头”。
   // 我们在这里“转换”数据，以匹配您的 Figma 组件
   
   // 1. 转换 OverallStats (修复字段名称匹配)
+  // 确保所有数值都被正确转换为数字类型
+  const annualStats = playerData.annualStats || {};
+  
   const OverallStats = {
-    avgKDA: playerData.annualStats?.avgKDA || 0,
-    winRate: playerData.annualStats?.winRate || 0,
-    avgCsPerMin: playerData.annualStats?.avgCsPerMin || 0,
-    totalGames: playerData.annualStats?.totalGames || 0,
-    championCounts: playerData.annualStats?.championCounts || {}
+    avgKDA: Number(annualStats.avgKDA) || 0,
+    winRate: Number(annualStats.winRate) || 0,
+    avgCsPerMin: Number(annualStats.avgCsPerMin) || 0,
+    totalGames: Number(annualStats.totalGames) || 0,
+    championCounts: annualStats.championCounts || {}
   };
+  
+  console.log('[DATA TRANSFORM] OverallStats:', OverallStats);
   
   // 2. 转换 Matches
   const Matches = playerData.matchHistory || [];
@@ -179,15 +288,61 @@ export default function Home() {
   // (您的 V1 JSX 现在 100% 可以工作了)
   return (
     <div className="min-h-screen bg-[#0a0e27] relative overflow-x-hidden">
-      {/* ... 您的网格/扫描线/粒子背景 ... */}
+      {/* Cyberpunk Grid Background */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'linear-gradient(#00ffff 1px, transparent 1px), linear-gradient(90deg, #00ffff 1px, transparent 1px)',
+          backgroundSize: '50px 50px'
+        }} />
+      </div>
+
+      {/* Scanlines */}
+      <div className="absolute inset-0 opacity-5 pointer-events-none" style={{
+        backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #00ffff 2px, #00ffff 4px)'
+      }} />
+
+      {/* Vignette */}
+      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-[#0a0e27] pointer-events-none" />
       
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-10 overflow-visible">
-        {/* ... 您的 Header (完全不变) ... */}
+        {/* Header */}
+        <header className="mb-8 text-center">
+          <h1 className="text-5xl font-bold text-[#00ffff] mb-2" style={{
+            textShadow: '0 0 20px #00ffff'
+          }}>
+            RIFTLENS AI
+          </h1>
+          <div className="text-[#ff00ff] font-mono text-sm" style={{
+            textShadow: '0 0 10px #ff00ff'
+          }}>
+            [ ANALYZING: {currentSummoner.name} • {currentSummoner.region} ]
+          </div>
+        </header>
         
         <PlayerSearchBar onSearch={handleSearch} isLoading={isLoading} />
         
         <Tabs defaultValue="report" className="w-full">
-          {/* ... 您的 TabsList (完全不变) ... */}
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#0a0e27]/80 border-2 border-[#00ffff]/30 p-1">
+            <TabsTrigger 
+              value="report" 
+              className="data-[state=active]:bg-[#00ffff]/20 data-[state=active]:text-[#00ffff] data-[state=active]:border-2 data-[state=active]:border-[#00ffff] text-[#666] font-mono uppercase tracking-wider transition-all"
+              style={{ textShadow: 'data-[state=active]:0 0 10px #00ffff' }}
+            >
+              📊 AI REPORT
+            </TabsTrigger>
+            <TabsTrigger 
+              value="matches" 
+              className="data-[state=active]:bg-[#ff00ff]/20 data-[state=active]:text-[#ff00ff] data-[state=active]:border-2 data-[state=active]:border-[#ff00ff] text-[#666] font-mono uppercase tracking-wider transition-all"
+            >
+              🎮 MATCH HISTORY
+            </TabsTrigger>
+            <TabsTrigger 
+              value="champions" 
+              className="data-[state=active]:bg-[#00ffff]/20 data-[state=active]:text-[#00ffff] data-[state=active]:border-2 data-[state=active]:border-[#00ffff] text-[#666] font-mono uppercase tracking-wider transition-all"
+            >
+              ⚔️ CHAMPIONS
+            </TabsTrigger>
+          </TabsList>
 
           {/* Tab 1: AI Report (V21 兼容) */}
           <TabsContent value="report" className="space-y-6">
@@ -220,8 +375,17 @@ export default function Home() {
 
           {/* Tab 2: Match History (V21 兼容) */}
           <TabsContent value="matches">
-            <div className="bg-[#0a0e27]/80 ...">
-              {/* ... */}
+            <div className="bg-[#0a0e27]/80 border-2 border-[#ff00ff]/40 p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl text-[#ff00ff] font-mono uppercase tracking-wider" style={{
+                  textShadow: '0 0 10px #ff00ff'
+                }}>
+                  🎮 RECENT MATCHES
+                </h2>
+                <div className="text-[#666] font-mono text-sm">
+                  Showing {Math.min(20, Matches.length)} of {Matches.length} games
+                </div>
+              </div>
               <ScrollArea className="h-[800px] pr-4">
                 <div className="space-y-3">
                   {/* [V21 修复] 读取 Matches (而不是 playerData.Matches) */}
@@ -248,19 +412,27 @@ export default function Home() {
           <TabsContent value="champions">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Champion List (V21 修复) */}
-              <div className="lg:col-span-1 ...">
+              <div className="lg:col-span-1 bg-[#0a0e27]/80 border-2 border-[#00ffff]/40 p-4 backdrop-blur-sm">
+                <h3 className="text-[#00ffff] font-mono uppercase tracking-wider mb-4 text-sm" style={{
+                  textShadow: '0 0 10px #00ffff'
+                }}>
+                  ⚔️ CHAMPION POOL
+                </h3>
                 <div className="space-y-2">
                   {/* [V21 修复] 读取 ChampionStats (而不是 playerData.ChampionStats) */}
                   {ChampionStats.map((champ, idx) => (
                     <button
                       key={idx}
                       onClick={() => setSelectedChampion(champ.Champion)}
-                      className={`... ${selectedChampion === champ.Champion ? "border-[#00ffff] bg-[#00ffff]/10" : "..."}`}
+                      className={`w-full text-left px-3 py-2 border-2 transition-all font-mono text-sm ${
+                        selectedChampion === champ.Champion 
+                          ? "border-[#00ffff] bg-[#00ffff]/10" 
+                          : "border-[#00ffff]/20 bg-[#0a0e27]/50 hover:border-[#00ffff]/50"
+                      }`}
                     >
-                      {/* ... (按钮内部样式) ... */}
-                      <div className="text-sm ...">{champ.Champion}</div>
-                      <div className="text-xs ...">
-                        <span>{champ.Games} games</span>
+                      <div className="text-sm text-[#00ffff]">{champ.Champion}</div>
+                      <div className="text-xs flex items-center justify-between mt-1">
+                        <span className="text-[#666]">{champ.Games} games</span>
                         <span className={champ.WinRate >= 0.5 ? "text-[#00ff00]" : "text-[#ff0000]"}>
                           {(champ.WinRate * 100).toFixed(0)}%
                         </span>
@@ -271,14 +443,18 @@ export default function Home() {
               </div>
 
               {/* Champion Match History (V21 修复) */}
-              <div className="lg:col-span-3 ...">
+              <div className="lg:col-span-3 bg-[#0a0e27]/80 border-2 border-[#00ffff]/40 p-6 backdrop-blur-sm">
                 {/* [V21 修复] 读取 selectedChampData */}
                 {selectedChampData && (
                   <>
-                    <div className="flex items-center gap-4 ...">
-                      <h2 className="text-3xl ...">{selectedChampData.Champion}</h2>
-                      <div className="flex ...">
-                        <span>{selectedChampData.Games} GAMES</span>
+                    <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-[#00ffff]/30">
+                      <h2 className="text-3xl text-[#00ffff] font-mono uppercase tracking-wider" style={{
+                        textShadow: '0 0 10px #00ffff'
+                      }}>
+                        {selectedChampData.Champion}
+                      </h2>
+                      <div className="flex items-center gap-4 text-sm font-mono">
+                        <span className="text-[#666]">{selectedChampData.Games} GAMES</span>
                         <span>{selectedChampData.AvgKDA.toFixed(2)} KDA</span>
                         <span className={selectedChampData.WinRate >= 0.5 ? "text-[#00ff00]" : "text-[#ff0000]"}>
                           {(selectedChampData.WinRate * 100).toFixed(0)}% WR
@@ -316,8 +492,7 @@ export default function Home() {
 
       {/* [V21] 聊天机器人 (它将接收 *原始* playerData) */}
       <RiftAI playerData={playerData} />
-
-      <Toaster position="top-center" />
     </div>
-  );
+    );
+  }
 }

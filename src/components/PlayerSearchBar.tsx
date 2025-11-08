@@ -40,6 +40,7 @@ export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBar
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0, width: 0 });
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>(() => {
+    if (typeof window === 'undefined') return [];
     const saved = localStorage.getItem('riftai_search_history');
     return saved ? JSON.parse(saved) : [];
   });

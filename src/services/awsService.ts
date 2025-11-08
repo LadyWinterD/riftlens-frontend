@@ -62,9 +62,10 @@ interface ErrorResponse {
  * 因为它现在 100% 兼容我们的 Lambda V2
  */
 export const postStatefulChatMessage = async (
-  playerId: string, // [!! 关键 !!] 我们只发送 ID
+  playerId: string,
   userMessage: string,
-  chatHistory: ChatMessage[] // [!! 关键 !!] 我们发送聊天记录
+  chatHistory: ChatMessage[],
+  playerData?: any  // 添加可选的完整玩家数据以兼容旧 Lambda
 ): Promise<string> => {
 
   if (!CHAT_URL) {
@@ -73,29 +74,51 @@ export const postStatefulChatMessage = async (
   }
 
   console.log(`[V21 postStatefulChatMessage] Calling: ${CHAT_URL}`);
+  console.log(`[V21 postStatefulChatMessage] PlayerID: ${playerId}`);
+  
+  // 临时使用旧格式以通过 API Gateway 验证器
+  // 如果提供了完整的 playerData，使用它；否则只发送 PlayerID
+  const requestBody = {
+    question: userMessage,
+    data: playerData ? {
+      ...playerData,  // 包含完整的玩家数据（annualStats, worstGameStats 等）
+      chatHistory: chatHistory
+    } : {
+      PlayerID: playerId,
+      playerId: playerId,
+      chatHistory: chatHistory
+    }
+  };
+  
+  console.log(`[V21 postStatefulChatMessage] Request body (OLD FORMAT):`, JSON.stringify(requestBody, null, 2));
+  console.log(`[V21 postStatefulChatMessage] Chat history length:`, chatHistory.length);
 
   try {
+
     const response = await fetch(CHAT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // 100% 遵循 V21 Lambda (V2 版) 的要求
-        playerId: playerId,
-        userMessage: userMessage,
-        chatHistory: chatHistory 
-      })
+      body: JSON.stringify(requestBody)
     });
 
+    console.log(`[V21 postStatefulChatMessage] Response status: ${response.status}`);
+    console.log(`[V21 postStatefulChatMessage] Response ok: ${response.ok}`);
+    
     const responseData: ChatResponse | ErrorResponse = await response.json();
+    console.log(`[V21 postStatefulChatMessage] Response data:`, JSON.stringify(responseData, null, 2));
+    console.log(`[V21 postStatefulChatMessage] Response has aiResponse:`, 'aiResponse' in responseData);
+    console.log(`[V21 postStatefulChatMessage] Response has error:`, 'error' in responseData);
 
     if (!response.ok) {
       const errorMsg = (responseData as ErrorResponse).error || 'AI analysis failed';
       console.error('[V21 postStatefulChatMessage] API Error Response:', errorMsg);
+      console.error('[V21 postStatefulChatMessage] Full error response:', JSON.stringify(responseData, null, 2));
       throw new Error(`[${response.status}] ${errorMsg}`);
     }
     
-    // 100% 遵循 V21 Lambda (V2 版) 的返回格式
-    return (responseData as ChatResponse).aiResponse || '[AI ERROR] Received empty response.';
+    // Lambda 可能返回 aiResponse 或 aiAnswer 字段（兼容性）
+    const aiResponse = (responseData as ChatResponse).aiResponse || (responseData as any).aiAnswer;
+    return aiResponse || '[AI ERROR] Received empty response.';
 
   } catch (error) {
     console.error('[V21 postStatefulChatMessage] Network or Fetch Error:', error);
