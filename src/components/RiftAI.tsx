@@ -1,23 +1,25 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // [V21] 切换到 framer-motion (Next.js 标配)
-import { AIDeepAnalysis } from './AIDeepAnalysis'; // [V21 修复] 使用命名导出
+import { motion, AnimatePresence } from 'framer-motion';
+import AIDeepAnalysis from './AIDeepAnalysis'; // [V21 修复] 默认导入
+
+// [!! V21 关键修复 !!]
 import { postStatefulChatMessage, type ChatMessage } from '@/services/awsService';
 
-import CyberChatMessage from './CyberChatMessage';
-import CyberTypingIndicator from './CyberTypingIndicator';
+// [!! V21 结构修复 !!] 导入我们即将创建的辅助组件
 import MainAIButton from './MainAIButton';
 import SubAIModule from './SubAIModule';
+import CyberChatMessage from './CyberChatMessage';
+import CyberTypingIndicator from './CyberTypingIndicator';
 
-
-// AI Personalities (您的 Figma 蓝图 - 保持不变)
+// (从您的 V1 蓝图复制)
 const AI_PERSONALITIES = {
   main: {
     name: 'RIFT-CORE',
     color: '#00ffff',
     icon: '🤖',
-    // [V21] 我们只保留“问题” (答案将由 AI 实时生成)
+    // [V21] 我们只保留"问题" (答案将由 AI 实时生成)
     responses: [
       { q: 'Full system diagnostic' },
       { q: 'Performance summary' },
@@ -30,6 +32,7 @@ const AI_PERSONALITIES = {
     color: '#ff0000',
     icon: '⚔️',
     personality: 'Aggressive combat advisor',
+    shape: 'diamond', // (来自 V1 蓝图)
     messages: [
       'ALERT: Your kill participation too low! More fights = more wins!',
       'CRITICAL: Stop playing scared. Press your advantage!',
@@ -42,6 +45,7 @@ const AI_PERSONALITIES = {
     color: '#ffff00',
     icon: '🧠',
     personality: 'Strategic analysis unit',
+    shape: 'triangle', // (来自 V1 蓝图)
     messages: [
       'CALCULATION: Your farm efficiency decreased 18% after 15 minutes.',
       'OBSERVATION: 4 deaths were avoidable with better map awareness.',
@@ -51,7 +55,7 @@ const AI_PERSONALITIES = {
   }
 };
 
-// Glitch text effect (您的 Figma 蓝图 - 保持不变)
+// (从您的 V1 蓝图复制)
 const GlitchText = ({ children, isGlitching }: { children: string; isGlitching: boolean }) => {
   if (!isGlitching) return <>{children}</>;
   return (
@@ -74,23 +78,21 @@ interface RiftAIProps {
 export function RiftAI({ playerData }: RiftAIProps) {
   const [isMainOpen, setIsMainOpen] = useState(false);
   const [isGlitching, setIsGlitching] = useState(false);
-  
-  // Deep analysis state (保持不变)
   const [deepAnalysisOpen, setDeepAnalysisOpen] = useState(false);
   const [deepAnalysisType, setDeepAnalysisType] = useState<'diagnostic' | 'performance' | 'champion' | 'mistakes' | null>(null);
   
   // [V21 关键状态]
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [customQuestion, setCustomQuestion] = useState(''); // (仅用于输入框)
+  const [customQuestion, setCustomQuestion] = useState(''); 
 
-  // Sub-AI states (您的 Figma 蓝图 - 保持不变)
+  // (V1 Sub-AI states 保持不变)
   const [combatAIVisible, setCombatAIVisible] = useState(false);
   const [strategyAIVisible, setStrategyAIVisible] = useState(false);
   const [combatMessage, setCombatMessage] = useState('');
   const [strategyMessage, setStrategyMessage] = useState('');
 
-  // Glitch effect trigger (您的 Figma 蓝图 - 保持不变)
+  // (V1 Glitch effect trigger 保持不变)
   useEffect(() => {
     const glitchInterval = setInterval(() => {
       setIsGlitching(true);
@@ -99,9 +101,9 @@ export function RiftAI({ playerData }: RiftAIProps) {
     return () => clearInterval(glitchInterval);
   }, []);
 
-  // Random sub-AI appearances (您的 Figma 蓝图 - 保持不变)
+  // (V1 Random sub-AI appearances 保持不变, 仅添加 playerData 依赖)
   useEffect(() => {
-    if (!playerData) return; // (V21: 仅在加载数据后才显示)
+    if (!playerData) return; 
     
     const showSubAI = () => {
       const rand = Math.random();
@@ -120,56 +122,47 @@ export function RiftAI({ playerData }: RiftAIProps) {
     const interval = setInterval(showSubAI, 15000 + Math.random() * 10000);
     setTimeout(showSubAI, 5000);
     return () => clearInterval(interval);
-  }, [playerData]); // (V21: 依赖 playerData)
+  }, [playerData]);
 
   // [!! V21 关键 !!]
   // 当 'playerData' 从 page.js 传入时，初始化聊天
   useEffect(() => {
     if (playerData && playerData.aiAnalysis_DefaultRoast) {
-      // 使用“预生成”的报告作为 AI 的第一句话 (开场白)
       setChatHistory([
         { role: 'assistant', content: playerData.aiAnalysis_DefaultRoast }
       ]);
       setIsMainOpen(true); // 自动打开聊天窗口
     }
-  }, [playerData]); // 依赖于 'playerData' prop
+  }, [playerData]); 
 
   // [!! V21 核心 !!]
-  // V21 的“主发送函数” (同时处理“预设”和“自由”聊天)
+  // V21 的"主发送函数"
   const handleSendMessage = async (message: string) => {
     if (isProcessing || !message || !playerData) return;
 
-    // 1. 立即将用户消息添加到 UI
     const newUserMessage: ChatMessage = { role: 'user', content: message };
     const updatedHistory = [...chatHistory, newUserMessage]; 
     setChatHistory(updatedHistory);
-    setCustomQuestion(''); // 清空输入框
-
-    // 2. 设置加载状态
+    setCustomQuestion(''); 
     setIsProcessing(true);
 
     try {
       // 3. [!! 核心 V21 !!] 调用我们的 "有状态" 聊天 API
       const aiResponse = await postStatefulChatMessage(
-        playerData.PlayerID, // 发送 PlayerID (PUUID)
+        playerData.PlayerID, 
         message,
-        updatedHistory // [!! 关键 !!] 发送完整聊天记录
+        updatedHistory 
       );
-
-      // 4. [成功] 将 AI 回答添加到 UI
       setChatHistory([
         ...updatedHistory,
         { role: 'assistant', content: aiResponse }
       ]);
-
     } catch (error: any) {
-      // 5. [失败] 在聊天窗口中显示错误
       setChatHistory([
         ...updatedHistory,
         { role: 'error', content: `[AI OFFLINE] ${error.message}` }
       ]);
     } finally {
-      // 6. 移除加载状态
       setIsProcessing(false);
     }
   };
@@ -195,7 +188,7 @@ export function RiftAI({ playerData }: RiftAIProps) {
   };
 
   // [V1 - 保持不变] 按 Enter 键
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleCustomQuestionSubmit();
@@ -207,17 +200,17 @@ export function RiftAI({ playerData }: RiftAIProps) {
     return null;
   }
 
+  // --- [ 您的 V1 Figma 蓝图 JSX ] ---
   return (
     <>
-      {/* Deep Analysis Modal (您的 V1 蓝图 - 保持不变) */}
       <AIDeepAnalysis
         isOpen={deepAnalysisOpen}
         onClose={() => setDeepAnalysisOpen(false)}
         analysisType={deepAnalysisType}
-        playerData={playerData} // [V21] 传递真实数据
+        playerData={playerData}
       />
 
-      {/* Combat AI - Top Left (您的 V1 蓝图 - 保持不变) */}
+      {/* Combat AI - Top Left */}
       <AnimatePresence>
         {combatAIVisible && (
           <motion.div
@@ -235,7 +228,7 @@ export function RiftAI({ playerData }: RiftAIProps) {
         )}
       </AnimatePresence>
 
-      {/* Strategy AI - Top Right (您的 V1 蓝图 - 保持不变) */}
+      {/* Strategy AI - Top Right */}
       <AnimatePresence>
         {strategyAIVisible && (
           <motion.div
@@ -253,7 +246,7 @@ export function RiftAI({ playerData }: RiftAIProps) {
         )}
       </AnimatePresence>
 
-      {/* Main AI Interface (您的 V1 蓝图 - 保持不变) */}
+      {/* Main AI Interface */}
       <>
         {/* Overlay */}
         <AnimatePresence>
@@ -279,7 +272,6 @@ export function RiftAI({ playerData }: RiftAIProps) {
                 className="mb-4 mr-2"
               >
                 {/* [!! V21 核心 UI 修复 !!] */}
-                {/* 我们现在传入 *新* 的 MainAIPanel_V21 */}
                 <MainAIPanel_V21
                   isGlitching={isGlitching}
                   onQuestionClick={handleQuestionClick}
@@ -289,20 +281,20 @@ export function RiftAI({ playerData }: RiftAIProps) {
                   onCustomSubmit={handleCustomQuestionSubmit}
                   onKeyPress={handleKeyPress}
                   isProcessing={isProcessing}
-                  chatHistory={chatHistory} // [V21] 传入 V21 格式的聊天记录
+                  chatHistory={chatHistory} 
                 />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Main AI Button (您的 V1 蓝图 - 保持不变) */}
+          {/* Main AI Button */}
           <MainAIButton
             isOpen={isMainOpen}
             isGlitching={isGlitching}
             onClick={() => setIsMainOpen(!isMainOpen)}
           />
 
-          {/* Floating Data Points (您的 V1 蓝图 - 保持不变) */}
+          {/* Floating Data Points */}
           {!isMainOpen && (
             <>
               <motion.div
@@ -330,7 +322,7 @@ export function RiftAI({ playerData }: RiftAIProps) {
 // ##################################################################
 // [!! V21 核心 UI 修复 !!]
 // 这是 *重写* 的 MainAIPanel，它现在是一个 *聊天窗口*，
-// 但 100% 匹配您的 Figma 赛博朋克风格。
+// 100% 匹配您的 Figma 赛博朋克风格。
 // ##################################################################
 function MainAIPanel_V21({
   isGlitching,
@@ -349,9 +341,9 @@ function MainAIPanel_V21({
   customQuestion: string;
   setCustomQuestion: (val: string) => void;
   onCustomSubmit: () => void;
-  onKeyPress: (e: React.KeyboardEvent) => void;
+  onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void; // (V21: 修复类型)
   isProcessing: boolean;
-  chatHistory: ChatMessage[]; // [V21] 接收 V21 格式的聊天记录
+  chatHistory: ChatMessage[]; 
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -447,7 +439,6 @@ function MainAIPanel_V21({
                          hover:border-[#00ffff] hover:bg-[#00ffff]/5"
               title="Double-click for deep analysis"
             >
-              {/* (您的 V1 按钮内部样式 - 保持不变) */}
               <div className="relative z-10 flex items-center gap-3">
                 <span className="text-xl filter" style={{ filter: 'drop-shadow(0 0 5px #00ffff)' }}>
                   {['🔍', '📊', '🎯', '❓'][index]}

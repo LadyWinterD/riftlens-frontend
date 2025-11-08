@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ScrollArea } from './ui/scroll-area';
 import { X } from 'lucide-react';
 
@@ -135,7 +135,7 @@ const DEEP_ANALYSIS_DATA = {
   }
 };
 
-export function AIDeepAnalysis({ isOpen, onClose, analysisType }: DeepAnalysisProps) {
+export default function AIDeepAnalysis({ isOpen, onClose, analysisType }: DeepAnalysisProps) {
   if (!analysisType) return null;
 
   const data = DEEP_ANALYSIS_DATA[analysisType];

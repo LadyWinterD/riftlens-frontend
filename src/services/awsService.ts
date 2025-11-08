@@ -1,12 +1,7 @@
 // [!!] V21 兼容的 AWS 服务层 [!!]
 
-// 1. 数据 API - GET /report
-// (您的 'riftlens-read' Lambda)
-const API_URL = process.env.REACT_APP_API_GATEWAY_URL; // (来自 .env.local)
-
-// 2. 聊天 API - POST /chat
-// (您的 'riftlens-chat' Lambda，即我们 V2 版的 Lambda)
-const CHAT_URL = process.env.REACT_APP_CHAT_API_URL; // (来自 .env.local)
+const API_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
+const CHAT_URL = process.env.NEXT_PUBLIC_CHAT_API_URL;
 
 // ##############################################################
 // 1. 数据 API (您的 searchSummoner 保持不变)
@@ -16,10 +11,8 @@ const CHAT_URL = process.env.REACT_APP_CHAT_API_URL; // (来自 .env.local)
  * [V7.3] 从 'riftlens-read' Lambda (GET /report) 获取玩家数据
  */
 export const searchSummoner = async (playerID: string) => {
-  // 注意：在生产中，您将使用真实的 playerID。
-  // 我们暂时硬编码 V7.3 的测试 PUUID
-  const HARDCODED_PUUID = "7LN0MfN51RJVbUlncFaZQC664RAMd9vNNwevKyB9hpFK9kwV3Gx_OL-dpPUKMWy5EuLpMGHIkPKcaw";
-  const endpoint = `${API_URL}/report?playerID=${HARDCODED_PUUID}`;
+
+  const endpoint = `${API_URL}/report?playerID=${playerID}`;
 
   console.log(`[V21 searchSummoner] Calling: ${endpoint}`);
 

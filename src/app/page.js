@@ -3,7 +3,7 @@
 import { useState } from "react";
 // [V21] 导入我们 *确认可用* 的服务
 import { searchSummoner, postStatefulChatMessage } from "@/services/awsService";
-
+import playerManifest from '../../player_manifest.json';
 // [V21] 导入您的 Figma 风格组件
 import { CyberStatCard } from "@/components/CyberStatCard";
 import { CyberMatchCard } from "@/components/CyberMatchCard";
@@ -23,39 +23,90 @@ export default function Home() {
   const [selectedChampion, setSelectedChampion] = useState(""); // (V21: 按名称选择)
   const [currentSummoner, setCurrentSummoner] = useState({ name: "Suger 99", region: "NA" });
 
-  // [AWS集成 V21] 搜索召唤师 (来自您的 V1 page.js - 100% 正确)
+  // [!! V21 关键修复 !!] 
+  // 这是我们新的 handleSearch 逻辑
   const handleSearch = async (summonerName, region) => {
     console.log("[AWS] Searching summoner:", summonerName, region);
     setIsLoading(true);
     setError(null);
-    toast.loading(`[NEURAL SCAN] Connecting to AWS Database...`, { 
-        id: "search-toast",
-        style: { /* ... 您的赛博朋克样式 ... */ }
+    toast.loading(`[NEURAL SCAN] Connecting to local manifest...`, {
+      id: "search-toast",
+      style: {
+        background: "#0a0e27",
+        border: "2px solid #00ffff",
+        color: "#00ffff",
+        fontFamily: "monospace",
+      },
     });
 
+    // 1. [本地查找 PUUID]
+    // (注意：您的 manifest 使用 'displayName' 和 'name')
+    const foundPlayer = playerManifest.find(
+      (player) => (player.displayName || player.name).toLowerCase() === summonerName.toLowerCase()
+    );
+
+    if (!foundPlayer) {
+      const errorMsg = `[LOCAL ERROR] Summoner "${summonerName}" not found in local manifest.`;
+      console.error(errorMsg);
+      setError(errorMsg);
+      toast.error(errorMsg, {
+        id: "search-toast",
+        style: {
+          background: "#0a0e27",
+          border: "2px solid #ff0000",
+          color: "#ff0000",
+          fontFamily: "monospace",
+        },
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // [V21] 我们从 manifest 中提取了 PUUID！
+    const puuid = foundPlayer.puuid; 
+    console.log(`[LOCAL] Found PUUID: ${puuid} for name: ${summonerName}`);
+    toast.loading(`[NEURAL SCAN] PUUID found. Connecting to AWS...`, { id: "search-toast" });
+
+    // 2. [调用 AWS]
+    // 现在我们使用 *真实* 的 PUUID 调用 awsService
     try {
-      // 调用AWS服务 (V21 searchSummoner)
-      const data = await searchSummoner("dummy-id-to-trigger-hardcoded-puuid");
+      const data = await searchSummoner(puuid); 
 
       if (!data || !data.PlayerID) {
         throw new Error("API returned empty or invalid player data.");
       }
 
       console.log("[AWS] Report successfully received!", data);
-      setPlayerData(data); // [V21] 存储 *原始* DDB 数据
+      setPlayerData(data); // 存储 *原始* DDB 数据
       setCurrentSummoner({ name: data.playerName || summonerName, region });
 
       // [V21] 自动选择第一个英雄
       if (data.annualStats && data.annualStats.championCounts) {
         const firstChamp = Object.keys(data.annualStats.championCounts)[0];
-        setSelectedChampion(firstChamp); // (按名称设置)
+        setSelectedChampion(firstChamp);
       }
 
-      toast.success(`[SCAN COMPLETE] Data loaded for ${data.playerName}`, { id: "search-toast", /* ... 您的样式 ... */ });
+      toast.success(`[SCAN COMPLETE] Data loaded for ${data.playerName}`, { 
+        id: "search-toast", 
+        style: {
+          background: "#0a0e27",
+          border: "2px solid #00ff00",
+          color: "#00ffff",
+          fontFamily: "monospace",
+        }
+      });
     } catch (err) {
       console.error("[AWS] Failed to call API:", err);
       setError(err.message);
-      toast.error(`[AWS ERROR] ${err.message}`, { id: "search-toast", /* ... 您的样式 ... */ });
+      toast.error(`[AWS ERROR] ${err.message}`, { 
+        id: "search-toast",
+        style: {
+          background: "#0a0e27",
+          border: "2px solid #ff0000",
+          color: "#ff0000",
+          fontFamily: "monospace",
+        }
+      });
     } finally {
       setIsLoading(false);
     }
