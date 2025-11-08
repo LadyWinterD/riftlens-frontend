@@ -49,7 +49,7 @@ export default function Home() {
     await handleSearch(summonerName, region);
   };
 
-  const handleDemoMode = () => {
+  const handleDemoMode = async () => {
     // 使用演示数据
     setCurrentSummoner({ name: "Demo Player", region: "DEMO" });
     setShowLoadingScreen(false);
@@ -62,7 +62,7 @@ export default function Home() {
       },
     });
     // 调用实际搜索演示数据
-    handleSearch("Suger 99", "EUW");
+    await handleSearch("Suger 99", "EUW");
   };
 
   // [!! V21 关键修复 !!] 
@@ -260,8 +260,25 @@ export default function Home() {
   
   console.log('[DATA TRANSFORM] OverallStats:', OverallStats);
   
-  // 2. 转换 Matches
-  const Matches = playerData.matchHistory || [];
+  // 2. 转换 Matches - 修复装备数据格式
+  const Matches = (playerData.matchHistory || []).map(match => ({
+    ...match,
+    // 将 item0-item6 转换为 items 数组
+    items: [
+      match.item0 || 0,
+      match.item1 || 0,
+      match.item2 || 0,
+      match.item3 || 0,
+      match.item4 || 0,
+      match.item5 || 0
+    ],
+    // 添加 championId（如果没有的话）
+    championId: match.championId || match.championName,
+    // 添加 rune（如果有的话，否则默认0）
+    rune: match.rune || match.perk0 || 0,
+    // 计算游戏时长（如果有的话）
+    gameDurationInSec: match.gameDurationInSec || match.gameDuration || 0
+  }));
   
   // 3. 转换 ChampionStats
   const ChampionStats = OverallStats.championCounts ? Object.entries(OverallStats.championCounts).map(([name, games]) => {
@@ -393,14 +410,17 @@ export default function Home() {
                     <CyberMatchCard
                       key={idx}
                       champion={match.championName || "Unknown"}
+                      championId={match.championId}
                       championIcon="🎮"
                       isWin={match.win}
                       kills={match.kills} deaths={match.deaths} assists={match.assists}
                       cs={match.cs} visionScore={match.visionScore || 0}
-                      items={match.items || ["⚔️", "🛡️", "👢", "💎", "🔮", "⭐"]}
-                      rune="🔥"
+                      items={match.items || [0, 0, 0, 0, 0, 0]}
+                      rune={match.rune || 0}
                       duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
                       gameNumber={idx + 1}
+                      summoner1Id={match.summoner1Id}
+                      summoner2Id={match.summoner2Id}
                     />
                   ))}
                 </div>
@@ -469,14 +489,17 @@ export default function Home() {
                           <CyberMatchCard
                             key={idx}
                             champion={match.championName}
+                            championId={match.championId}
                             championIcon="🎮"
                             isWin={match.win}
                             kills={match.kills} deaths={match.deaths} assists={match.assists}
                             cs={match.cs} visionScore={match.visionScore || 0}
-                            items={match.items || ["⚔️", "🛡️", "👢", "💎", "🔮", "⭐"]}
-                            rune="🔥"
+                            items={match.items || [0, 0, 0, 0, 0, 0]}
+                            rune={match.rune || 0}
                             duration={`${Math.floor((match.gameDurationInSec || 0) / 60)}:${((match.gameDurationInSec || 0) % 60).toString().padStart(2, "0")}`}
                             gameNumber={idx + 1}
+                            summoner1Id={match.summoner1Id}
+                            summoner2Id={match.summoner2Id}
                           />
                         ))}
                       </div>

@@ -35,6 +35,12 @@ export function CyberLoadingScreen({
   const [summonerName, setSummonerName] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('NA');
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 修复 hydration 错误
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const loadingPhases = [
     { text: 'INITIALIZING NEURAL PATHWAYS...', icon: '🧠', duration: 800 },
@@ -146,7 +152,7 @@ export function CyberLoadingScreen({
       />
 
       {/* Floating Particles */}
-      {[...Array(20)].map((_, i) => (
+      {isMounted && [...Array(20)].map((_, i) => (
         <motion.div
           key={i}
           className="absolute w-1 h-1 bg-[#00ffff] rounded-full"

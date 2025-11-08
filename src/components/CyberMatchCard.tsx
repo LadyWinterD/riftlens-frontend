@@ -12,10 +12,29 @@ interface CyberMatchCardProps {
   rune: string | number;
   duration: string;
   gameNumber: number;
+  summoner1Id?: number;
+  summoner2Id?: number;
 }
 
 const DD_VERSION = '14.1.1';
 const DD_CDN = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}`;
+
+// 召唤师技能ID映射表
+const SUMMONER_SPELL_MAP: Record<number, string> = {
+  1: 'SummonerBoost',        // Cleanse
+  3: 'SummonerExhaust',      // Exhaust
+  4: 'SummonerFlash',        // Flash
+  6: 'SummonerHaste',        // Ghost
+  7: 'SummonerHeal',         // Heal
+  11: 'SummonerSmite',       // Smite
+  12: 'SummonerTeleport',    // Teleport
+  13: 'SummonerMana',        // Clarity
+  14: 'SummonerDot',         // Ignite
+  21: 'SummonerBarrier',     // Barrier
+  32: 'SummonerSnowball',    // Mark/Dash (ARAM)
+  2201: 'Summoner_UltBook_Placeholder',  // Arena
+  2202: 'Summoner_UltBook_Placeholder',  // Arena
+};
 
 export function CyberMatchCard({
   champion,
@@ -30,15 +49,16 @@ export function CyberMatchCard({
   items,
   rune,
   duration,
-  gameNumber
+  gameNumber,
+  summoner1Id,
+  summoner2Id
 }: CyberMatchCardProps) {
   const winColor = isWin ? '#00ff00' : '#ff0000';
   const winBorderColor = isWin ? '#00ff00' : '#ff0000';
 
-  // 将英雄名转换为ID（处理特殊情况）
+  // 获取英雄ID
   const getChampionId = () => {
     if (championId) return championId;
-    // 处理特殊英雄名
     const nameMap: Record<string, string> = {
       'Lee Sin': 'LeeSin',
       'Twisted Fate': 'TwistedFate',
@@ -49,103 +69,31 @@ export function CyberMatchCard({
       'Tahm Kench': 'TahmKench',
       'Xin Zhao': 'XinZhao',
       'Aurelion Sol': 'AurelionSol',
-      'Cho\'Gath': 'Chogath',
-      'Kai\'Sa': 'Kaisa',
-      'Kha\'Zix': 'Khazix',
-      'Kog\'Maw': 'KogMaw',
+      "Cho'Gath": 'Chogath',
+      "Kai'Sa": 'Kaisa',
+      "Kha'Zix": 'Khazix',
+      "Kog'Maw": 'KogMaw',
       'LeBlanc': 'Leblanc',
       'Nunu & Willump': 'Nunu',
-      'Rek\'Sai': 'RekSai',
+      "Rek'Sai": 'RekSai',
       'Renata Glasc': 'Renata',
-      'Vel\'Koz': 'Velkoz',
+      "Vel'Koz": 'Velkoz',
       'Wukong': 'MonkeyKing',
-      'Bel\'Veth': 'Belveth',
+      "Bel'Veth": 'Belveth',
     };
     return nameMap[champion] || champion.replace(/[^a-zA-Z]/g, '');
   };
 
   const champId = getChampionId();
 
-  // 渲染英雄头像
-  const renderChampionIcon = () => {
-    if (typeof championIcon === 'string' && championIcon.startsWith('http')) {
-      // 如果是URL，直接使用
-      return (
-        <img
-          src={championIcon}
-          alt={champion}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-          }}
-        />
-      );
-    }
-    
-    // 使用Data Dragon CDN
-    return (
-      <>
-        <img
-          src={`${DD_CDN}/img/champion/${champId}.png`}
-          alt={champion}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-          }}
-        />
-        <div className="hidden absolute inset-0 flex items-center justify-center text-2xl">
-          {championIcon}
-        </div>
-      </>
-    );
+  // 获取召唤师技能名称
+  const getSummonerSpellName = (spellId?: number): string | null => {
+    if (!spellId) return null;
+    return SUMMONER_SPELL_MAP[spellId] || null;
   };
 
-  // 渲染符文图标
-  const renderRuneIcon = () => {
-    if (typeof rune === 'number') {
-      const runeTree = Math.floor(rune / 100) * 100;
-      return (
-        <>
-          <img
-            src={`https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/${runeTree}/${rune}/${rune}.png`}
-            alt="Rune"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden absolute inset-0 flex items-center justify-center text-sm">⚡</div>
-        </>
-      );
-    }
-    return <span>{rune}</span>;
-  };
-
-  // 渲染装备图标
-  const renderItemIcon = (item: string | number, idx: number) => {
-    if (typeof item === 'number' && item > 0) {
-      return (
-        <>
-          <img
-            src={`${DD_CDN}/img/item/${item}.png`}
-            alt={`Item ${item}`}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden absolute inset-0 flex items-center justify-center text-xs">?</div>
-        </>
-      );
-    } else if (typeof item === 'number' && item === 0) {
-      return <div className="absolute inset-0 bg-[#0a0e27]/50"></div>;
-    }
-    return <span className="text-sm">{item}</span>;
-  };
+  const spell1 = getSummonerSpellName(summoner1Id);
+  const spell2 = getSummonerSpellName(summoner2Id);
 
   return (
     <div 
@@ -185,9 +133,55 @@ export function CyberMatchCard({
             className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[#00ffff] bg-[#0a0e27]"
             style={{ boxShadow: '0 0 15px rgba(0, 255, 255, 0.5)' }}
           >
-            {renderChampionIcon()}
+            <img
+              src={`${DD_CDN}/img/champion/${champId}.png`}
+              alt={champion}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                if (fallback) fallback.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden absolute inset-0 flex items-center justify-center text-2xl">
+              {championIcon}
+            </div>
           </div>
           <div className="text-[#00ffff] text-xs uppercase tracking-wider font-mono">{champion}</div>
+        </div>
+
+        {/* Summoner Spells */}
+        <div className="flex flex-col gap-1">
+          {spell1 && (
+            <div className="relative w-6 h-6 bg-[#0a0e27] border border-[#ffff00]/40 rounded overflow-hidden">
+              <img
+                src={`${DD_CDN}/img/spell/${spell1}.png`}
+                alt={spell1}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.classList.remove('hidden');
+                }}
+              />
+              <div className="hidden absolute inset-0 flex items-center justify-center text-xs">✨</div>
+            </div>
+          )}
+          {spell2 && (
+            <div className="relative w-6 h-6 bg-[#0a0e27] border border-[#ffff00]/40 rounded overflow-hidden">
+              <img
+                src={`${DD_CDN}/img/spell/${spell2}.png`}
+                alt={spell2}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.classList.remove('hidden');
+                }}
+              />
+              <div className="hidden absolute inset-0 flex items-center justify-center text-xs">✨</div>
+            </div>
+          )}
         </div>
 
         {/* Vertical Separator */}
@@ -228,19 +222,53 @@ export function CyberMatchCard({
           {/* Items & Rune */}
           <div className="flex items-center gap-2">
             {/* Rune */}
-            <div className="relative text-lg bg-[#ff00ff]/10 border border-[#ff00ff]/30 rounded w-8 h-8 flex items-center justify-center overflow-hidden">
-              {renderRuneIcon()}
-            </div>
+            {typeof rune === 'number' && rune > 0 && (
+              <div className="relative w-8 h-8 bg-[#ff00ff]/10 border border-[#ff00ff]/30 rounded overflow-hidden">
+                <img
+                  src={`https://ddragon.leagueoflegends.com/cdn/img/perk-images/Styles/${Math.floor(rune / 100) * 100}/${rune}/${rune}.png`}
+                  alt="Rune"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.classList.remove('hidden');
+                  }}
+                />
+                <div className="hidden absolute inset-0 flex items-center justify-center text-sm">⚡</div>
+              </div>
+            )}
+            
             {/* Items */}
             <div className="flex gap-1">
-              {items.map((item, idx) => (
-                <div 
-                  key={idx} 
-                  className="relative text-sm bg-[#00ffff]/10 border border-[#00ffff]/30 rounded w-7 h-7 flex items-center justify-center overflow-hidden"
-                >
-                  {renderItemIcon(item, idx)}
-                </div>
-              ))}
+              {items.slice(0, 6).map((item, idx) => {
+                const itemId = typeof item === 'number' ? item : parseInt(item) || 0;
+                return (
+                  <div 
+                    key={idx} 
+                    className="relative w-7 h-7 bg-[#00ffff]/10 border border-[#00ffff]/30 rounded overflow-hidden"
+                  >
+                    {itemId > 0 ? (
+                      <>
+                        <img
+                          src={`${DD_CDN}/img/item/${itemId}.png`}
+                          alt={`Item ${itemId}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="hidden absolute inset-0 flex items-center justify-center text-xs bg-[#1a1f3a] text-[#666] font-mono">
+                          {itemId}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 bg-[#0a0e27]/50"></div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
