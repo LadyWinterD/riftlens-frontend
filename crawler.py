@@ -2,6 +2,8 @@ import json
 import os
 import requests
 import time
+import boto3
+from botocore.exceptions import ClientError
 
 # ##################################################################
 # ✅ V19.4 - 步骤一：配置“爬虫”工具

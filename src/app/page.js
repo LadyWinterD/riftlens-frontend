@@ -12,6 +12,7 @@ import { CyberAnalysisPanel } from "@/components/CyberAnalysisPanel";
 import { RiftAI } from "@/components/RiftAI";
 import { PlayerSearchBar } from "@/components/PlayerSearchBar";
 import { CyberLoadingScreen } from "@/components/CyberLoadingScreen";
+import CyberMatchDetailModal from "@/components/CyberMatchDetailModal";
 
 // [V21] 导入您项目中的 Shadcn UI 组件
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Toaster, toast } from "sonner"; // (来自 sonner.tsx)
 
 // Data Dragon CDN版本
-const DD_VERSION = '14.1.1';
+const DD_VERSION = '15.22.1';
 const DD_CDN = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}`;
 
 export default function Home() {
@@ -28,6 +29,10 @@ export default function Home() {
   const [playerData, setPlayerData] = useState(null); // (V21: 存储来自 Lambda 的完整*原始*报告)
   const [selectedChampion, setSelectedChampion] = useState(""); // (V21: 按名称选择)
   const [currentSummoner, setCurrentSummoner] = useState({ name: "Suger 99", region: "EUW" });
+  
+  // Match Detail Modal state
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [isMatchDetailOpen, setIsMatchDetailOpen] = useState(false);
 
   const handleLoadingComplete = () => {
     setShowLoadingScreen(false);
@@ -36,17 +41,14 @@ export default function Home() {
   const handleLoadingSearch = async (summonerName, region) => {
     // 从加载界面搜索
     setCurrentSummoner({ name: summonerName, region });
-    setShowLoadingScreen(false);
-    toast.success(`[SCAN COMPLETE] Loading data for ${summonerName} (${region})`, {
-      style: {
-        background: "#0a0e27",
-        border: "2px solid #00ff00",
-        color: "#00ffff",
-        fontFamily: "monospace",
-      },
-    });
-    // 调用实际搜索
-    await handleSearch(summonerName, region);
+    
+    // 先尝试搜索
+    const success = await handleSearch(summonerName, region);
+    
+    // 只有搜索成功才关闭加载界面
+    if (success) {
+      setShowLoadingScreen(false);
+    }
   };
 
   const handleDemoMode = async () => {
@@ -95,10 +97,11 @@ export default function Home() {
     console.log(`[LOCAL] Found player:`, foundPlayer);
 
     if (!foundPlayer) {
-      const errorMsg = `[LOCAL ERROR] Summoner "${summonerName}" not found in local manifest. Total players: ${playerManifest.length}`;
-      console.error(errorMsg);
+      const errorMsg = `Summoner "${summonerName}" not found. Try another name.`;
+      console.log(`[LOCAL] Player not found: "${summonerName}"`);
       toast.error(errorMsg, {
         id: "search-toast",
+        duration: 5000,
         style: {
           background: "#0a0e27",
           border: "2px solid #ff0000",
@@ -107,7 +110,7 @@ export default function Home() {
         },
       });
       setIsLoading(false);
-      return;
+      return false; // 返回失败
     }
 
     // [V21] 我们从 manifest 中提取了 PUUID！
@@ -158,10 +161,12 @@ export default function Home() {
           fontFamily: "monospace",
         }
       });
+      return true; // 返回成功
     } catch (err) {
       console.error("[AWS] Failed to call API:", err);
       toast.error(`[AWS ERROR] ${err.message}`, { 
         id: "search-toast",
+        duration: 5000,
         style: {
           background: "#0a0e27",
           border: "2px solid #ff0000",
@@ -169,6 +174,7 @@ export default function Home() {
           fontFamily: "monospace",
         }
       });
+      return false; // 返回失败
     } finally {
       setIsLoading(false);
     }
@@ -289,13 +295,24 @@ export default function Home() {
       const totalDeaths = champMatches.reduce((acc, m) => acc + (m.deaths || 1), 0); // (防除零)
       const totalAssists = champMatches.reduce((acc, m) => acc + (m.assists || 0), 0);
       
+      // 找到该英雄最近一场比赛的索引（索引越小越新）
+      const mostRecentMatchIndex = Matches.findIndex(m => m.championName === name);
+      
       return {
           Champion: name,
           Games: games,
           WinRate: champMatches.length > 0 ? wins / champMatches.length : 0,
           AvgKDA: totalDeaths > 0 ? (totalKills + totalAssists) / totalDeaths : totalKills + totalAssists,
+          MostRecentIndex: mostRecentMatchIndex, // 用于排序
       };
-  }).sort((a, b) => b.Games - a.Games) : []; // 按游戏场次排序
+  }).sort((a, b) => {
+      // 首先按游戏场次排序（降序）
+      if (b.Games !== a.Games) {
+          return b.Games - a.Games;
+      }
+      // 如果场次相同，按最近玩的时间排序（索引越小越新）
+      return a.MostRecentIndex - b.MostRecentIndex;
+  }) : [];
 
   const selectedChampData = ChampionStats.find(c => c.Champion === selectedChampion);
   const selectedChampMatches = Matches.filter(m => m.championName === selectedChampion);
@@ -421,6 +438,12 @@ export default function Home() {
                       gameNumber={idx + 1}
                       summoner1Id={match.summoner1Id}
                       summoner2Id={match.summoner2Id}
+                      matchData={match}
+                      playerPuuid={playerData?.PlayerID}
+                      onCardClick={() => {
+                        setSelectedMatch(match);
+                        setIsMatchDetailOpen(true);
+                      }}
                     />
                   ))}
                 </div>
@@ -500,6 +523,12 @@ export default function Home() {
                             gameNumber={idx + 1}
                             summoner1Id={match.summoner1Id}
                             summoner2Id={match.summoner2Id}
+                            matchData={match}
+                            playerPuuid={playerData?.PlayerID}
+                            onCardClick={() => {
+                              setSelectedMatch(match);
+                              setIsMatchDetailOpen(true);
+                            }}
                           />
                         ))}
                       </div>
@@ -515,6 +544,15 @@ export default function Home() {
 
       {/* [V21] 聊天机器人 (它将接收 *原始* playerData) */}
       <RiftAI playerData={playerData} />
+      
+      {/* Match Detail Modal */}
+      <CyberMatchDetailModal
+        isOpen={isMatchDetailOpen}
+        onClose={() => setIsMatchDetailOpen(false)}
+        matchData={selectedMatch}
+        playerPuuid={playerData?.PlayerID}
+        playerData={playerData}
+      />
     </div>
     );
   }

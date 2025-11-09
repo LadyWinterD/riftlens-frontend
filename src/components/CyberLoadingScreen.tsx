@@ -10,17 +10,7 @@ interface CyberLoadingScreenProps {
 }
 
 const REGIONS = [
-  { code: 'NA', name: 'North America', icon: '🌎' },
   { code: 'EUW', name: 'EU West', icon: '🌍' },
-  { code: 'EUNE', name: 'EU Nordic & East', icon: '🌍' },
-  { code: 'KR', name: 'Korea', icon: '🌏' },
-  { code: 'JP', name: 'Japan', icon: '🌏' },
-  { code: 'BR', name: 'Brazil', icon: '🌎' },
-  { code: 'LAN', name: 'LAN', icon: '🌎' },
-  { code: 'LAS', name: 'LAS', icon: '🌎' },
-  { code: 'OCE', name: 'Oceania', icon: '🌏' },
-  { code: 'TR', name: 'Turkey', icon: '🌍' },
-  { code: 'RU', name: 'Russia', icon: '🌍' },
 ];
 
 export function CyberLoadingScreen({
@@ -33,7 +23,7 @@ export function CyberLoadingScreen({
   const [currentPhase, setCurrentPhase] = useState(0);
   const [isAutoLoading, setIsAutoLoading] = useState(false); // 停止自动加载
   const [summonerName, setSummonerName] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState('NA');
+  const [selectedRegion, setSelectedRegion] = useState('EUW');
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 

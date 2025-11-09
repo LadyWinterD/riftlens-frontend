@@ -14,26 +14,34 @@ interface CyberMatchCardProps {
   gameNumber: number;
   summoner1Id?: number;
   summoner2Id?: number;
+  matchData?: any;  // 新增：完整的比赛数据
+  playerPuuid?: string;  // 新增：玩家 PUUID
+  onCardClick?: () => void;  // 新增：点击回调
 }
 
-const DD_VERSION = '14.1.1';
+const DD_VERSION = '15.22.1';
 const DD_CDN = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}`;
 
-// 召唤师技能ID映射表
+// 召唤师技能ID映射表 (v15.22.1)
 const SUMMONER_SPELL_MAP: Record<number, string> = {
-  1: 'SummonerBoost',        // Cleanse
-  3: 'SummonerExhaust',      // Exhaust
-  4: 'SummonerFlash',        // Flash
-  6: 'SummonerHaste',        // Ghost
-  7: 'SummonerHeal',         // Heal
-  11: 'SummonerSmite',       // Smite
-  12: 'SummonerTeleport',    // Teleport
-  13: 'SummonerMana',        // Clarity
-  14: 'SummonerDot',         // Ignite
-  21: 'SummonerBarrier',     // Barrier
-  32: 'SummonerSnowball',    // Mark/Dash (ARAM)
-  2201: 'Summoner_UltBook_Placeholder',  // Arena
-  2202: 'Summoner_UltBook_Placeholder',  // Arena
+  1: 'SummonerBoost',  // Cleanse
+  3: 'SummonerExhaust',  // Exhaust
+  4: 'SummonerFlash',  // Flash
+  6: 'SummonerHaste',  // Ghost
+  7: 'SummonerHeal',  // Heal
+  11: 'SummonerSmite',  // Smite
+  12: 'SummonerTeleport',  // Teleport
+  13: 'SummonerMana',  // Clarity
+  14: 'SummonerDot',  // Ignite
+  21: 'SummonerBarrier',  // Barrier
+  30: 'SummonerPoroRecall',  // To the King!
+  31: 'SummonerPoroThrow',  // Poro Toss
+  32: 'SummonerSnowball',  // Mark
+  39: 'SummonerSnowURFSnowball_Mark',  // Mark
+  54: 'Summoner_UltBookPlaceholder',  // Placeholder
+  55: 'Summoner_UltBookSmitePlaceholder',  // Placeholder and Attack-Smite
+  2201: 'SummonerCherryHold',  // Flee
+  2202: 'SummonerCherryFlash',  // Flash
 };
 
 export function CyberMatchCard({
@@ -51,7 +59,10 @@ export function CyberMatchCard({
   duration,
   gameNumber,
   summoner1Id,
-  summoner2Id
+  summoner2Id,
+  matchData,
+  playerPuuid,
+  onCardClick
 }: CyberMatchCardProps) {
   const winColor = isWin ? '#00ff00' : '#ff0000';
   const winBorderColor = isWin ? '#00ff00' : '#ff0000';
@@ -97,13 +108,14 @@ export function CyberMatchCard({
 
   return (
     <div 
-      className="relative bg-[#0a0e27]/60 border-l-4 border-r border-t border-b p-4 backdrop-blur-sm group hover:bg-[#0a0e27]/80 transition-all"
+      className="relative bg-[#0a0e27]/60 border-l-4 border-r border-t border-b p-4 backdrop-blur-sm group hover:bg-[#0a0e27]/80 transition-all cursor-pointer"
       style={{ 
         borderLeftColor: winBorderColor,
         borderRightColor: '#333',
         borderTopColor: '#333',
         borderBottomColor: '#333'
       }}
+      onClick={onCardClick}
     >
       {/* Animated line on hover */}
       <div 
@@ -155,31 +167,53 @@ export function CyberMatchCard({
           {spell1 && (
             <div className="relative w-6 h-6 bg-[#0a0e27] border border-[#ffff00]/40 rounded overflow-hidden">
               <img
-                src={`${DD_CDN}/img/spell/${spell1}.png`}
+                src={`/spells/${spell1}.png`}
                 alt={spell1}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.classList.remove('hidden');
+                  // 本地图标失败，尝试CDN
+                  const target = e.currentTarget;
+                  if (target.src.includes('/spells/')) {
+                    target.src = `${DD_CDN}/img/spell/${spell1}.png`;
+                  } else {
+                    // CDN也失败，显示后备图标
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.fallback-icon')) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'fallback-icon absolute inset-0 flex items-center justify-center text-xs bg-[#1a1f3a] text-[#ffff00]';
+                      fallback.textContent = '✨';
+                      parent.appendChild(fallback);
+                    }
+                  }
                 }}
               />
-              <div className="hidden absolute inset-0 flex items-center justify-center text-xs">✨</div>
             </div>
           )}
           {spell2 && (
             <div className="relative w-6 h-6 bg-[#0a0e27] border border-[#ffff00]/40 rounded overflow-hidden">
               <img
-                src={`${DD_CDN}/img/spell/${spell2}.png`}
+                src={`/spells/${spell2}.png`}
                 alt={spell2}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.classList.remove('hidden');
+                  // 本地图标失败，尝试CDN
+                  const target = e.currentTarget;
+                  if (target.src.includes('/spells/')) {
+                    target.src = `${DD_CDN}/img/spell/${spell2}.png`;
+                  } else {
+                    // CDN也失败，显示后备图标
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.fallback-icon')) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'fallback-icon absolute inset-0 flex items-center justify-center text-xs bg-[#1a1f3a] text-[#ffff00]';
+                      fallback.textContent = '✨';
+                      parent.appendChild(fallback);
+                    }
+                  }
                 }}
               />
-              <div className="hidden absolute inset-0 flex items-center justify-center text-xs">✨</div>
             </div>
           )}
         </div>
@@ -248,21 +282,28 @@ export function CyberMatchCard({
                     className="relative w-7 h-7 bg-[#00ffff]/10 border border-[#00ffff]/30 rounded overflow-hidden"
                   >
                     {itemId > 0 ? (
-                      <>
-                        <img
-                          src={`${DD_CDN}/img/item/${itemId}.png`}
-                          alt={`Item ${itemId}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.classList.remove('hidden');
-                          }}
-                        />
-                        <div className="hidden absolute inset-0 flex items-center justify-center text-xs bg-[#1a1f3a] text-[#666] font-mono">
-                          {itemId}
-                        </div>
-                      </>
+                      <img
+                        src={`/items/${itemId}.png`}
+                        alt={`Item ${itemId}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // 本地图标失败，尝试CDN
+                          const target = e.currentTarget;
+                          if (target.src.includes('/items/')) {
+                            target.src = `${DD_CDN}/img/item/${itemId}.png`;
+                          } else {
+                            // CDN也失败，显示装备ID
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.fallback-text')) {
+                              const fallback = document.createElement('div');
+                              fallback.className = 'fallback-text absolute inset-0 flex items-center justify-center text-[8px] bg-[#1a1f3a] text-[#666] font-mono leading-none';
+                              fallback.textContent = itemId.toString();
+                              parent.appendChild(fallback);
+                            }
+                          }
+                        }}
+                      />
                     ) : (
                       <div className="absolute inset-0 bg-[#0a0e27]/50"></div>
                     )}

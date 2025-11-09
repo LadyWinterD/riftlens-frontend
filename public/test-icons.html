@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Test</title>
+    <style>
+        body { background: #0a0e27; color: #00ffff; font-family: monospace; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 2px solid #00ffff; }
+        img { width: 48px; height: 48px; margin: 5px; border: 2px solid #666; }
+        .success { border-color: #00ff00; }
+        .error { border-color: #ff0000; }
+    </style>
+</head>
+<body>
+    <h1>Icon Loading Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Local Items (from /items/)</h2>
+        <img src="/items/1001.png" alt="Item 1001" onload="this.className='success'" onerror="this.className='error'">
+        <img src="/items/3174.png" alt="Item 3174" onload="this.className='success'" onerror="this.className='error'">
+        <img src="/items/6692.png" alt="Item 6692" onload="this.className='success'" onerror="this.className='error'">
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Local Spells (from /spells/)</h2>
+        <img src="/spells/SummonerFlash.png" alt="Flash" onload="this.className='success'" onerror="this.className='error'">
+        <img src="/spells/SummonerSmite.png" alt="Smite" onload="this.className='success'" onerror="this.className='error'">
+        <img src="/spells/SummonerDot.png" alt="Ignite" onload="this.className='success'" onerror="this.className='error'">
+    </div>
+    
+    <div class="test-section">
+        <h2>3. CDN Items</h2>
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/item/1001.png" alt="CDN Item 1001" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/item/3174.png" alt="CDN Item 3174" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/item/6692.png" alt="CDN Item 6692" onload="this.className='success'" onerror="this.className='error'">
+    </div>
+    
+    <div class="test-section">
+        <h2>4. CDN Spells</h2>
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/spell/SummonerFlash.png" alt="CDN Flash" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/spell/SummonerSmite.png" alt="CDN Smite" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/spell/SummonerDot.png" alt="CDN Ignite" onload="this.className='success'" onerror="this.className='error'">
+    </div>
+    
+    <div class="test-section">
+        <h2>5. CDN Champions</h2>
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/champion/Kayn.png" alt="Kayn" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/champion/LeeSin.png" alt="Lee Sin" onload="this.className='success'" onerror="this.className='error'">
+        <img src="https://ddragon.leagueoflegends.com/cdn/15.22.1/img/champion/Yasuo.png" alt="Yasuo" onload="this.className='success'" onerror="this.className='error'">
+    </div>
+    
+    <p style="margin-top: 40px;">
+        <strong>Legend:</strong><br>
+        Green border = Success ✅<br>
+        Red border = Failed ❌<br>
+        Gray border = Loading...
+    </p>
+    
+    <script>
+        console.log('Icon test page loaded');
+        console.log('Check which images have green (success) or red (error) borders');
+    </script>
+</body>
+</html>

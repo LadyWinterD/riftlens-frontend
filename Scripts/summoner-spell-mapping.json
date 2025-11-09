@@ -1,0 +1,92 @@
+{
+  "1": {
+    "id": "SummonerBoost",
+    "name": "Cleanse",
+    "description": "Removes all disables (excluding suppression and airborne) and summoner spell debuffs affecting your champion and gives Tenacity."
+  },
+  "3": {
+    "id": "SummonerExhaust",
+    "name": "Exhaust",
+    "description": "Slows target enemy champion and reduces their damage dealt."
+  },
+  "4": {
+    "id": "SummonerFlash",
+    "name": "Flash",
+    "description": "Teleports you a short distance toward your cursor."
+  },
+  "6": {
+    "id": "SummonerHaste",
+    "name": "Ghost",
+    "description": "Gain Move Speed and ignore unit collision for the duration."
+  },
+  "7": {
+    "id": "SummonerHeal",
+    "name": "Heal",
+    "description": "Restores Health and grants Move Speed to you and target allied champion."
+  },
+  "11": {
+    "id": "SummonerSmite",
+    "name": "Smite",
+    "description": "Deals true damage to a monster or minion."
+  },
+  "12": {
+    "id": "SummonerTeleport",
+    "name": "Teleport",
+    "description": "After a brief channel, become untargetable and travel to an allied unit. Upgrades into Unleashed Teleport, which significantly increases travel speed. "
+  },
+  "13": {
+    "id": "SummonerMana",
+    "name": "Clarity",
+    "description": "Restores your and ally champion's Mana."
+  },
+  "14": {
+    "id": "SummonerDot",
+    "name": "Ignite",
+    "description": "Deals true damage over time to target enemy champion and reduces healing effects on them for the duration."
+  },
+  "21": {
+    "id": "SummonerBarrier",
+    "name": "Barrier",
+    "description": "Gain a brief Shield."
+  },
+  "30": {
+    "id": "SummonerPoroRecall",
+    "name": "To the King!",
+    "description": "Quickly travel to the Poro King's side."
+  },
+  "31": {
+    "id": "SummonerPoroThrow",
+    "name": "Poro Toss",
+    "description": "Toss a Poro at your enemies. If it hits, you can quickly travel to your target as a follow up."
+  },
+  "32": {
+    "id": "SummonerSnowball",
+    "name": "Mark",
+    "description": "Throw a snowball in a straight line at your enemies. If it hits an enemy, they become marked, granting True Sight, and your champion can quickly travel to the marked target as a follow up."
+  },
+  "39": {
+    "id": "SummonerSnowURFSnowball_Mark",
+    "name": "Mark",
+    "description": "Throw a snowball in a straight line at your enemies. If it hits an enemy, they become marked, granting True Sight, and your champion can quickly travel to the marked target as a follow up."
+  },
+  "54": {
+    "id": "Summoner_UltBookPlaceholder",
+    "name": "Placeholder",
+    "description": "This slot will be replaced by another champion's ultimate selected at the start of the game. There will be 30 seconds to select an ultimate. Be prepared!"
+  },
+  "55": {
+    "id": "Summoner_UltBookSmitePlaceholder",
+    "name": "Placeholder and Attack-Smite",
+    "description": "This slot will be replaced by another champion's ultimate and you will gain Attack-Smite. There will be 30 seconds to select an ultimate. Be prepared!"
+  },
+  "2201": {
+    "id": "SummonerCherryHold",
+    "name": "Flee",
+    "description": "Gain a short burst of Move Speed, increased while running away from enemy champions."
+  },
+  "2202": {
+    "id": "SummonerCherryFlash",
+    "name": "Flash",
+    "description": "Teleports your champion a short distance toward your cursor's location."
+  }
+}
