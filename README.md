@@ -2,10 +2,17 @@
 
 An AI-powered League of Legends match analysis platform that transforms gameplay data into personalized insights and performance analytics.
 
-![Rift Rewind](https://img.shields.io/badge/Next.js-16.0-black?style=for-the-badge&logo=next.js)
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-Rift_Rewind-00ffff?style=for-the-badge)](https://main.d3g5g5yuerezra.amplifyapp.com/)
+![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=for-the-badge&logo=next.js)
 ![AWS](https://img.shields.io/badge/AWS-Amplify-orange?style=for-the-badge&logo=amazon-aws)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=for-the-badge&logo=typescript)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4.0-38bdf8?style=for-the-badge&logo=tailwind-css)
+
+## 🌐 Live Demo
+
+**Try it now:** [https://main.d3g5g5yuerezra.amplifyapp.com/](https://main.d3g5g5yuerezra.amplifyapp.com/)
+
+Experience the cyberpunk-styled AI analysis platform with real data from 500 EUW summoners!
 
 ## ✨ Features
 
@@ -164,6 +171,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **LadyWinterD**
 - GitHub: [@LadyWinterD](https://github.com/LadyWinterD)
 - A passionate League of Legends fan combining AI and design
+- 💜 Faker Fan | I LOVE T1
 
 ## 🏆 Acknowledgments
 
