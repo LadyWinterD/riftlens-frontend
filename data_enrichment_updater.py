@@ -9,7 +9,7 @@ from decimal import Decimal
 # ##################################################################
 
 # [ 1. Riot API 配置 ]
-RIOT_API_KEY = "RGAPI-dc514f45-336f-4c1c-92da-4a5b5621282f"  # 更新为你的密钥
+RIOT_API_KEY = "RGAPI-c60a2dc3-7827-4667-968d-52a480753797"  # 更新为你的密钥
 RIOT_MATCH_ROUTING = "europe"
 
 # [ 2. DynamoDB 配置 ]

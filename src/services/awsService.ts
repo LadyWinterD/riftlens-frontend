@@ -4,16 +4,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
 const CHAT_URL = process.env.NEXT_PUBLIC_CHAT_API_URL;
 
 // ##############################################################
-// 1. 数据 API (您的 searchSummoner 保持不变)
+// 1. 数据 API
 // ##############################################################
 
 /**
  * [V7.3] 从 'riftlens-read' Lambda (GET /report) 获取玩家数据
  */
 export const searchSummoner = async (playerID: string) => {
-
   const endpoint = `${API_URL}/report?playerID=${playerID}`;
-
   console.log(`[V21 searchSummoner] Calling: ${endpoint}`);
 
   try {
@@ -29,7 +27,7 @@ export const searchSummoner = async (playerID: string) => {
 
     const data = await response.json();
     console.log('[V21 searchSummoner] AWS Data Received:', data);
-    return data; // (这是完整的 'PlayerReports' 表中的 JSON)
+    return data;
     
   } catch (error) {
     console.error('[V21 searchSummoner] Network or Fetch Error:', error);
@@ -37,12 +35,10 @@ export const searchSummoner = async (playerID: string) => {
   }
 };
 
-
 // ##############################################################
 // 2. 聊天 API (有状态)
 // ##############################################################
 
-// (定义与 Lambda V2 匹配的类型)
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'error';
   content: string;
@@ -57,17 +53,14 @@ interface ErrorResponse {
 }
 
 /**
- * [V21] 调用 'riftlens-chat' Lambda (POST /chat) 以获取“有状态”的回复
- * * 这 *替换* 了您 V7.3 的 getAIResponse，
- * 因为它现在 100% 兼容我们的 Lambda V2
+ * [V21] 调用 'riftlens-chat' Lambda (POST /chat) 以获取"有状态"的回复
  */
 export const postStatefulChatMessage = async (
   playerId: string,
   userMessage: string,
   chatHistory: ChatMessage[],
-  playerData?: any  // 添加可选的完整玩家数据以兼容旧 Lambda
+  playerData?: any
 ): Promise<string> => {
-
   if (!CHAT_URL) {
     console.error('[V21 postStatefulChatMessage] CHAT_URL is not defined. Check .env.local');
     return "[FATAL ERROR] AI Chat URL not configured.";
@@ -76,12 +69,10 @@ export const postStatefulChatMessage = async (
   console.log(`[V21 postStatefulChatMessage] Calling: ${CHAT_URL}`);
   console.log(`[V21 postStatefulChatMessage] PlayerID: ${playerId}`);
   
-  // 临时使用旧格式以通过 API Gateway 验证器
-  // 如果提供了完整的 playerData，使用它；否则只发送 PlayerID
   const requestBody = {
     question: userMessage,
     data: playerData ? {
-      ...playerData,  // 包含完整的玩家数据（annualStats, worstGameStats 等）
+      ...playerData,
       chatHistory: chatHistory
     } : {
       PlayerID: playerId,
@@ -90,33 +81,22 @@ export const postStatefulChatMessage = async (
     }
   };
   
-  console.log(`[V21 postStatefulChatMessage] Request body (OLD FORMAT):`, JSON.stringify(requestBody, null, 2));
-  console.log(`[V21 postStatefulChatMessage] Chat history length:`, chatHistory.length);
+  console.log(`[V21 postStatefulChatMessage] Request body:`, JSON.stringify(requestBody, null, 2));
 
   try {
-
     const response = await fetch(CHAT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
     });
 
-    console.log(`[V21 postStatefulChatMessage] Response status: ${response.status}`);
-    console.log(`[V21 postStatefulChatMessage] Response ok: ${response.ok}`);
-    
     const responseData: ChatResponse | ErrorResponse = await response.json();
-    console.log(`[V21 postStatefulChatMessage] Response data:`, JSON.stringify(responseData, null, 2));
-    console.log(`[V21 postStatefulChatMessage] Response has aiResponse:`, 'aiResponse' in responseData);
-    console.log(`[V21 postStatefulChatMessage] Response has error:`, 'error' in responseData);
 
     if (!response.ok) {
       const errorMsg = (responseData as ErrorResponse).error || 'AI analysis failed';
-      console.error('[V21 postStatefulChatMessage] API Error Response:', errorMsg);
-      console.error('[V21 postStatefulChatMessage] Full error response:', JSON.stringify(responseData, null, 2));
       throw new Error(`[${response.status}] ${errorMsg}`);
     }
     
-    // Lambda 可能返回 aiResponse 或 aiAnswer 字段（兼容性）
     const aiResponse = (responseData as ChatResponse).aiResponse || (responseData as any).aiAnswer;
     return aiResponse || '[AI ERROR] Received empty response.';
 
@@ -124,4 +104,71 @@ export const postStatefulChatMessage = async (
     console.error('[V21 postStatefulChatMessage] Network or Fetch Error:', error);
     throw error;
   }
+};
+
+// ##############################################################
+// 3. 战术分析 API
+// ##############################################################
+
+interface ScoreboardData {
+  kda: string;
+  cs: number;
+  csPerMin: number;
+  gameDurationMinutes: number;
+  finalItems: (number | string)[];
+  damageDealt: number;
+  damageTaken: number;
+  visionScore: number;
+  championLevel: number;
+}
+
+interface TeamParticipant {
+  championName: string;
+  role: string;
+  kda: string;
+  totalDamageDealtToChampions: number;
+  totalDamageTaken: number;
+}
+
+interface GameAnalysisData {
+  myTeam: TeamParticipant[];
+  enemyTeam: TeamParticipant[];
+  player: {
+    championName: string;
+    role: string;
+    scoreboard: ScoreboardData;
+  };
+  gameResult: "Win" | "Loss";
+}
+
+/**
+ * 获取单场比赛的战术分析
+ * @param playerId - 玩家 ID
+ * @param gameData - 比赛详细数据
+ * @param chatHistory - 聊天历史
+ * @param playerData - 完整玩家数据
+ * @returns AI 战术分析结果
+ */
+export const getTacticalAnalysis = async (
+  playerId: string,
+  gameData: GameAnalysisData,
+  chatHistory: ChatMessage[],
+  playerData?: any
+): Promise<string> => {
+  const gameDataString = JSON.stringify(gameData, null, 2);
+  
+  const specialUserMessage = `Here is the match data. Please provide a BRUTALLY HONEST tactical analysis
+based on my performance, my team comp, the enemy comp, and my build.
+Follow the analysis categories from your system instructions.
+
+<match_data>
+${gameDataString}
+</match_data>`;
+
+  return postStatefulChatMessage(
+    playerId,
+    specialUserMessage,
+    chatHistory,
+    playerData
+  );
 };

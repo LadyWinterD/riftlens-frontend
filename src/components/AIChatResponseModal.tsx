@@ -85,16 +85,107 @@ export function AIChatResponseModal({
       .trim();
   };
 
+  // 渲染战术标签
+  const renderTacticalTag = (tag: string) => {
+    const tagConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
+      'WARNING': { color: '#ffaa00', bg: 'rgba(255, 170, 0, 0.15)', icon: '⚠️', label: 'WARNING' },
+      'CRITICAL': { color: '#ff0000', bg: 'rgba(255, 0, 0, 0.15)', icon: '🚨', label: 'CRITICAL' },
+      'NOTICE': { color: '#00ffff', bg: 'rgba(0, 255, 255, 0.15)', icon: 'ℹ️', label: 'NOTICE' },
+      'SUGGESTION': { color: '#00ff00', bg: 'rgba(0, 255, 0, 0.15)', icon: '💡', label: 'SUGGESTION' },
+    };
+
+    const config = tagConfig[tag] || tagConfig['NOTICE'];
+    
+    return (
+      <span 
+        className="inline-flex items-center gap-1 px-2 py-1 rounded font-bold text-xs uppercase tracking-wider mr-2"
+        style={{ 
+          color: config.color,
+          backgroundColor: config.bg,
+          border: `1px solid ${config.color}`,
+          textShadow: `0 0 10px ${config.color}`
+        }}
+      >
+        <span>{config.icon}</span>
+        <span>{config.label}</span>
+      </span>
+    );
+  };
+
   // 高亮数字和特殊文本
   const highlightText = (text: string) => {
     // 先清理引号
     const cleanedText = cleanText(text);
     
-    // 匹配数字（包括百分比、小数、带逗号的数字）
-    const parts = cleanedText.split(/(\d+[.,]?\d*%?|\b\d+\b)/g);
+    // 匹配各种标记：战术标签、XML标签、数字、关键词
+    const parts = cleanedText.split(/(\[WARNING\]|\[CRITICAL\]|\[NOTICE\]|\[SUGGESTION\]|<item>.*?<\/item>|<champion>.*?<\/champion>|<stat>.*?<\/stat>|\d+[.,]?\d*%?|\b\d+\b|\b[A-Z]{2,}\b)/g);
     
     return parts.map((part, i) => {
-      // 如果是数字
+      // 战术标签
+      if (part.match(/^\[(WARNING|CRITICAL|NOTICE|SUGGESTION)\]$/)) {
+        const tag = part.replace(/[\[\]]/g, '');
+        return <span key={i}>{renderTacticalTag(tag)}</span>;
+      }
+      
+      // 装备名称 <item>
+      if (part.startsWith('<item>') && part.endsWith('</item>')) {
+        const itemName = part.replace(/<\/?item>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#ff00ff]/20 border border-[#ff00ff]/50"
+            style={{ color: '#ff00ff', textShadow: '0 0 10px rgba(255,0,255,0.8)' }}
+          >
+            <span>🎒</span>
+            <span>{itemName}</span>
+          </span>
+        );
+      }
+      
+      // 英雄名称 <champion>
+      if (part.startsWith('<champion>') && part.endsWith('</champion>')) {
+        const champName = part.replace(/<\/?champion>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#00ffff]/20 border border-[#00ffff]/50"
+            style={{ color: '#00ffff', textShadow: '0 0 10px rgba(0,255,255,0.8)' }}
+          >
+            <span>⚔️</span>
+            <span>{champName}</span>
+          </span>
+        );
+      }
+      
+      // 统计数据 <stat>
+      if (part.startsWith('<stat>') && part.endsWith('</stat>')) {
+        const statValue = part.replace(/<\/?stat>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#ffaa00]/20 border border-[#ffaa00]/50"
+            style={{ color: '#ffaa00', textShadow: '0 0 10px rgba(255,170,0,0.8)' }}
+          >
+            <span>📊</span>
+            <span>{statValue}</span>
+          </span>
+        );
+      }
+      
+      // 全大写词（强调）
+      if (/^[A-Z]{2,}$/.test(part)) {
+        return (
+          <span 
+            key={i} 
+            className="font-bold text-[#ff6b6b]"
+            style={{ textShadow: '0 0 8px rgba(255,107,107,0.6)' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      
+      // 数字
       if (/^\d+[.,]?\d*%?$/.test(part) || /^\d+$/.test(part)) {
         return (
           <span 
@@ -106,14 +197,16 @@ export function AIChatResponseModal({
           </span>
         );
       }
-      // 高亮特殊关键词
-      if (part.match(/\b(KDA|CS|vision|gold|damage|kills|deaths|assists|win rate)\b/i)) {
+      
+      // 游戏术语关键词
+      if (part.match(/\b(KDA|CS|vision|gold|damage|kills|deaths|assists|win rate|tank|ADC|support|jungle|mid|top|bot)\b/i)) {
         return (
-          <span key={i} className="text-[#00ffff]">
+          <span key={i} className="text-[#00ff00] font-semibold">
             {part}
           </span>
         );
       }
+      
       return <span key={i}>{part}</span>;
     });
   };

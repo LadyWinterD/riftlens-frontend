@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Chat API</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0a0e27;
+            color: #00ffff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        button {
+            background: #ff00ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #ff00ff99;
+        }
+        .output {
+            background: #1a1f3a;
+            border: 2px solid #00ffff;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error {
+            border-color: #ff0000;
+            color: #ff0000;
+        }
+        .success {
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+        input, textarea {
+            width: 100%;
+            background: #1a1f3a;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Chat API Debugger</h1>
+        
+        <h3>API Configuration</h3>
+        <div class="output">
+CHAT_URL: https://t4k80w31b3.execute-api.ap-southeast-2.amazonaws.com/v1/chat
+        </div>
+
+        <h3>Test Player ID</h3>
+        <input type="text" id="playerId" value="7LN0MfN51RJVbUlncFaZQC664RAMd9vNNwevKyB9hpFK9kwV3Gx_OL-dpPUKMWy5EuLpMGHIkPKcaw" />
+
+        <h3>Test Question</h3>
+        <textarea id="question" rows="3">分析我的整体表现，给我一些建议。使用 [WARNING], <item>, <champion>, <stat> 标签。</textarea>
+
+        <button onclick="testAPI()">🚀 Test API</button>
+        <button onclick="clearOutput()">🗑️ Clear Output</button>
+
+        <h3>Response</h3>
+        <div id="output" class="output">Waiting for test...</div>
+
+        <h3>Format Check</h3>
+        <div id="formatCheck" class="output">-</div>
+    </div>
+
+    <script>
+        const CHAT_URL = 'https://t4k80w31b3.execute-api.ap-southeast-2.amazonaws.com/v1/chat';
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = 'Cleared.';
+            document.getElementById('formatCheck').innerHTML = '-';
+        }
+
+        async function testAPI() {
+            const playerId = document.getElementById('playerId').value;
+            const question = document.getElementById('question').value;
+            const output = document.getElementById('output');
+            const formatCheck = document.getElementById('formatCheck');
+
+            output.className = 'output';
+            output.innerHTML = '⏳ Sending request...\n\n';
+
+            const requestBody = {
+                question: question,
+                data: {
+                    PlayerID: playerId,
+                    playerId: playerId,
+                    chatHistory: []
+                }
+            };
+
+            output.innerHTML += 'Request Body:\n' + JSON.stringify(requestBody, null, 2) + '\n\n';
+
+            try {
+                const startTime = Date.now();
+                const response = await fetch(CHAT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const endTime = Date.now();
+
+                output.innerHTML += `Response Status: ${response.status}\n`;
+                output.innerHTML += `Response Time: ${endTime - startTime}ms\n\n`;
+
+                const data = await response.json();
+                
+                if (data.aiResponse) {
+                    output.className = 'output success';
+                    output.innerHTML += '✅ SUCCESS!\n\n';
+                    output.innerHTML += '─'.repeat(60) + '\n';
+                    output.innerHTML += data.aiResponse;
+                    output.innerHTML += '\n' + '─'.repeat(60);
+
+                    // Format check
+                    const checks = {
+                        '[WARNING]': data.aiResponse.includes('[WARNING]'),
+                        '[CRITICAL]': data.aiResponse.includes('[CRITICAL]'),
+                        '[NOTICE]': data.aiResponse.includes('[NOTICE]'),
+                        '[SUGGESTION]': data.aiResponse.includes('[SUGGESTION]'),
+                        '<item>': data.aiResponse.includes('<item>'),
+                        '<champion>': data.aiResponse.includes('<champion>'),
+                        '<stat>': data.aiResponse.includes('<stat>'),
+                        'emoji': /[\u{1F300}-\u{1F9FF}]/u.test(data.aiResponse)
+                    };
+
+                    let formatHTML = 'Format Tags Found:\n\n';
+                    for (const [tag, found] of Object.entries(checks)) {
+                        formatHTML += `${found ? '✅' : '❌'} ${tag}\n`;
+                    }
+
+                    const allPassed = Object.values(checks).every(v => v);
+                    formatCheck.className = allPassed ? 'output success' : 'output error';
+                    formatCheck.innerHTML = formatHTML;
+
+                    if (!allPassed) {
+                        formatCheck.innerHTML += '\n⚠️ WARNING: Some format tags are missing!\n';
+                        formatCheck.innerHTML += 'This means the Lambda system prompt is not working correctly.\n';
+                        formatCheck.innerHTML += 'Please deploy lambda_chatbot_updated.py to AWS Lambda.';
+                    }
+                } else if (data.error) {
+                    output.className = 'output error';
+                    output.innerHTML += '❌ ERROR:\n\n' + data.error;
+                    formatCheck.innerHTML = 'Error occurred, no format check.';
+                } else {
+                    output.className = 'output error';
+                    output.innerHTML += '❌ Unexpected response format:\n\n' + JSON.stringify(data, null, 2);
+                    formatCheck.innerHTML = 'Unexpected response, no format check.';
+                }
+            } catch (error) {
+                output.className = 'output error';
+                output.innerHTML += '❌ FETCH ERROR:\n\n' + error.message;
+                formatCheck.innerHTML = 'Network error, no format check.';
+            }
+        }
+
+        // Auto-test on load
+        window.onload = () => {
+            console.log('Debug page loaded. Click "Test API" to start.');
+        };
+    </script>
+</body>
+</html>

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Sparkles, Zap, Target, Shield } from 'lucide-react';
 import TeamMatchupComparison from './TeamMatchupComparison';
 import LaneMatchupComparison from './LaneMatchupComparison';
 import TeamRosterDisplay from './TeamRosterDisplay';
 import TeamComparisonChart from './TeamComparisonChart';
-import { postStatefulChatMessage } from '@/services/awsService';
+import { postStatefulChatMessage, getTacticalAnalysis } from '@/services/awsService';
 
 interface CyberMatchDetailModalProps {
   isOpen: boolean;
@@ -52,11 +52,22 @@ export default function CyberMatchDetailModal({
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
+  // 重置 AI 分析状态当 matchData 改变时
+  useEffect(() => {
+    setAiAnalysis(null);
+    setAnalysisError(null);
+    setIsAnalyzing(false);
+  }, [matchData?.matchId, matchData?.gameId]); // 监听比赛 ID 的变化
+
   if (!isOpen || !matchData) return null;
 
   // Debug logging
   console.log('[CyberMatchDetailModal] matchData:', matchData);
   console.log('[CyberMatchDetailModal] championName:', matchData.championName);
+  console.log('[CyberMatchDetailModal] participants:', matchData.participants);
+  console.log('[CyberMatchDetailModal] participants length:', matchData.participants?.length);
+  console.log('[CyberMatchDetailModal] participants type:', typeof matchData.participants);
+  console.log('[CyberMatchDetailModal] has participants:', !!matchData.participants);
   console.log('[CyberMatchDetailModal] items:', [
     matchData.item0,
     matchData.item1,
@@ -83,6 +94,128 @@ export default function CyberMatchDetailModal({
     return num?.toLocaleString('en-US') || '0';
   };
 
+  // 清理文本中的引号和特殊字符
+  const cleanText = (text: string) => {
+    return text
+      .replace(/["""''「」『』]/g, '')
+      .replace(/^["'\s]+|["'\s]+$/g, '')
+      .trim();
+  };
+
+  // 渲染战术标签
+  const renderTacticalTag = (tag: string) => {
+    const tagConfig: Record<string, { color: string; bg: string; icon: string; label: string }> = {
+      'WARNING': { color: '#ffaa00', bg: 'rgba(255, 170, 0, 0.15)', icon: '⚠️', label: 'WARNING' },
+      'CRITICAL': { color: '#ff0000', bg: 'rgba(255, 0, 0, 0.15)', icon: '🚨', label: 'CRITICAL' },
+      'NOTICE': { color: '#00ffff', bg: 'rgba(0, 255, 255, 0.15)', icon: 'ℹ️', label: 'NOTICE' },
+      'SUGGESTION': { color: '#00ff00', bg: 'rgba(0, 255, 0, 0.15)', icon: '💡', label: 'SUGGESTION' },
+    };
+
+    const config = tagConfig[tag] || tagConfig['NOTICE'];
+    
+    return (
+      <span 
+        className="inline-flex items-center gap-1 px-2 py-1 rounded font-bold text-xs uppercase tracking-wider mr-2"
+        style={{ 
+          color: config.color,
+          backgroundColor: config.bg,
+          border: `1px solid ${config.color}`,
+          textShadow: `0 0 10px ${config.color}`
+        }}
+      >
+        <span>{config.icon}</span>
+        <span>{config.label}</span>
+      </span>
+    );
+  };
+
+  // 高亮数字和特殊文本
+  const highlightText = (text: string) => {
+    const cleanedText = cleanText(text);
+    const parts = cleanedText.split(/(\[WARNING\]|\[CRITICAL\]|\[NOTICE\]|\[SUGGESTION\]|<item>.*?<\/item>|<champion>.*?<\/champion>|<stat>.*?<\/stat>|\d+[.,]?\d*%?|\b\d+\b|\b[A-Z]{2,}\b)/g);
+    
+    return parts.map((part, i) => {
+      // 战术标签
+      if (part.match(/^\[(WARNING|CRITICAL|NOTICE|SUGGESTION)\]$/)) {
+        const tag = part.replace(/[\[\]]/g, '');
+        return <span key={i}>{renderTacticalTag(tag)}</span>;
+      }
+      
+      // 装备名称
+      if (part.startsWith('<item>') && part.endsWith('</item>')) {
+        const itemName = part.replace(/<\/?item>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#ff00ff]/20 border border-[#ff00ff]/50"
+            style={{ color: '#ff00ff', textShadow: '0 0 10px rgba(255,0,255,0.8)' }}
+          >
+            <span>🎒</span>
+            <span>{itemName}</span>
+          </span>
+        );
+      }
+      
+      // 英雄名称
+      if (part.startsWith('<champion>') && part.endsWith('</champion>')) {
+        const champName = part.replace(/<\/?champion>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#00ffff]/20 border border-[#00ffff]/50"
+            style={{ color: '#00ffff', textShadow: '0 0 10px rgba(0,255,255,0.8)' }}
+          >
+            <span>⚔️</span>
+            <span>{champName}</span>
+          </span>
+        );
+      }
+      
+      // 统计数据
+      if (part.startsWith('<stat>') && part.endsWith('</stat>')) {
+        const statValue = part.replace(/<\/?stat>/g, '');
+        return (
+          <span 
+            key={i} 
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold text-sm bg-[#ffaa00]/20 border border-[#ffaa00]/50"
+            style={{ color: '#ffaa00', textShadow: '0 0 10px rgba(255,170,0,0.8)' }}
+          >
+            <span>📊</span>
+            <span>{statValue}</span>
+          </span>
+        );
+      }
+      
+      // 全大写词
+      if (/^[A-Z]{2,}$/.test(part)) {
+        return (
+          <span 
+            key={i} 
+            className="font-bold text-[#ff6b6b]"
+            style={{ textShadow: '0 0 8px rgba(255,107,107,0.6)' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      
+      // 数字
+      if (/^\d+[.,]?\d*%?$/.test(part) || /^\d+$/.test(part)) {
+        return (
+          <span 
+            key={i} 
+            className="text-[#ffff00] font-bold"
+            style={{ textShadow: '0 0 8px rgba(255,255,0,0.6)' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   // Format AI analysis with proper styling
   const formatAIAnalysis = (text: string) => {
     if (!text) return null;
@@ -91,35 +224,35 @@ export default function CyberMatchDetailModal({
     const elements: React.ReactElement[] = [];
     
     lines.forEach((line, index) => {
-      // Main title (### )
+      // 标题 (以 ### 开头)
       if (line.startsWith('### ')) {
-        const title = line.replace('### ', '').replace(/["\"\"]/g, '').trim();
+        const title = cleanText(line.replace('### ', ''));
         elements.push(
           <h3 
             key={index} 
-            className="text-xl text-[#00ffff] font-bold uppercase tracking-wide mt-4 mb-2"
-            style={{ textShadow: '0 0 15px #00ffff' }}
+            className="text-2xl text-[#00ffff] font-bold uppercase tracking-wide mt-6 mb-3"
+            style={{ textShadow: '0 0 15px #00ffff, 0 0 30px rgba(0,255,255,0.5)' }}
           >
             {title}
           </h3>
         );
       }
-      // Subtitle (## )
+      // 子标题 (以 ## 开头)
       else if (line.startsWith('## ')) {
-        const subtitle = line.replace('## ', '').replace(/["\"\"]/g, '').trim();
+        const subtitle = cleanText(line.replace('## ', ''));
         elements.push(
           <h4 
             key={index} 
-            className="text-base text-[#ff6b6b] font-semibold uppercase tracking-wide mt-3 mb-1.5"
+            className="text-sm text-[#ff6b6b] font-semibold uppercase tracking-wider mt-3 mb-1.5"
             style={{ textShadow: '0 0 8px rgba(255,107,107,0.5)' }}
           >
             {subtitle}
           </h4>
         );
       }
-      // Bold text (**text**)
+      // 粗体标题行
       else if (line.match(/^\*\*(.+?)\*\*$/)) {
-        const boldText = line.replace(/\*\*/g, '').replace(/["\"\"]/g, '').trim();
+        const boldText = cleanText(line.replace(/\*\*/g, ''));
         elements.push(
           <h4 
             key={index} 
@@ -130,29 +263,57 @@ export default function CyberMatchDetailModal({
           </h4>
         );
       }
-      // Empty line
+      // 重要信息 (以 >>> 开头)
+      else if (line.startsWith('>>> ')) {
+        elements.push(
+          <div key={index} className="border-l-4 border-[#ff0000] bg-[#ff0000]/10 pl-4 py-2 my-2">
+            <span className="text-[#ff0000] font-mono">{highlightText(line.replace('>>> ', ''))}</span>
+          </div>
+        );
+      }
+      // 成功/正向信息 (以 +++ 开头)
+      else if (line.startsWith('+++ ')) {
+        elements.push(
+          <div key={index} className="border-l-4 border-[#00ff00] bg-[#00ff00]/10 pl-4 py-2 my-2">
+            <span className="text-[#00ff00] font-mono">{highlightText(line.replace('+++ ', ''))}</span>
+          </div>
+        );
+      }
+      // 列表项 (以 - 或 • 开头)
+      else if (line.match(/^[\-•]\s/)) {
+        elements.push(
+          <div key={index} className="flex items-start gap-3 my-1 ml-4">
+            <span className="text-[#00ffff] mt-1">▸</span>
+            <span className="text-[#ccc] font-mono flex-1">{highlightText(line.replace(/^[\-•]\s/, ''))}</span>
+          </div>
+        );
+      }
+      // 数字列表 (以数字. 开头)
+      else if (line.match(/^\d+\.\s/)) {
+        const number = line.match(/^(\d+)\.\s/)?.[1];
+        const content = line.replace(/^\d+\.\s/, '');
+        elements.push(
+          <div key={index} className="flex items-start gap-3 my-1 ml-4">
+            <span className="text-[#ffff00] font-mono min-w-[24px] font-bold">{number}.</span>
+            <span className="text-[#ccc] font-mono flex-1">{highlightText(content)}</span>
+          </div>
+        );
+      }
+      // 分隔线
+      else if (line.trim() === '---') {
+        elements.push(
+          <div key={index} className="my-4 h-px bg-gradient-to-r from-transparent via-[#00ffff] to-transparent" />
+        );
+      }
+      // 空行
       else if (line.trim() === '') {
         elements.push(<div key={index} className="h-2" />);
       }
-      // Regular text with number highlighting
-      else if (line.trim()) {
-        const parts = line.split(/(\d+[.,]?\d*%?|\b\d+\b)/g);
+      // 普通文本
+      else {
         elements.push(
-          <p key={index} className="text-[#ccc] font-mono my-1 leading-relaxed">
-            {parts.map((part, i) => {
-              if (/^\d+[.,]?\d*%?$/.test(part) || /^\d+$/.test(part)) {
-                return (
-                  <span 
-                    key={i} 
-                    className="text-[#ffff00] font-bold"
-                    style={{ textShadow: '0 0 8px rgba(255,255,0,0.6)' }}
-                  >
-                    {part}
-                  </span>
-                );
-              }
-              return <span key={i}>{part}</span>;
-            })}
+          <p key={index} className="text-[#bbb] font-mono my-1 leading-relaxed text-base">
+            {highlightText(line)}
           </p>
         );
       }
@@ -192,49 +353,145 @@ export default function CyberMatchDetailModal({
 
   const champId = getChampionId(matchData?.championName);
 
+  // 分析阵容类型
+  const analyzeTeamComposition = (participants: any[], teamId: number) => {
+    const team = participants.filter(p => p.teamId === teamId);
+    let adCount = 0;
+    let apCount = 0;
+    let tankCount = 0;
+    let ccCount = 0;
+    
+    team.forEach(p => {
+      // 简单判断：物理伤害 > 魔法伤害 = AD
+      if (p.physicalDamageDealtToChampions > p.magicDamageDealtToChampions) {
+        adCount++;
+      } else {
+        apCount++;
+      }
+      
+      // 判断坦克（承伤高）
+      if (p.totalDamageTaken > 25000) {
+        tankCount++;
+      }
+    });
+    
+    return { adCount, apCount, tankCount, ccCount, champions: team.map(p => p.championName) };
+  };
+
   // AI Analysis function
   const handleAIAnalysis = async () => {
     if (!fullPlayerData) {
-      setAnalysisError('Player data not available');
+      setAnalysisError('Player data not available. Cannot perform analysis.');
       return;
     }
 
     setIsAnalyzing(true);
     setAnalysisError(null);
+    setAiAnalysis(null);
 
     try {
-      // 构建详细的比赛数据
-      const kda = matchData.deaths > 0 ? ((matchData.kills + matchData.assists) / matchData.deaths).toFixed(2) : 'Perfect';
+      // 检查是否有完整的 10 人数据
+      const hasFullMatchData = matchData.participants && matchData.participants.length === 10;
       
-      const analysisQuestion = `Analyze this match and provide GAME INSIGHTS:
+      if (hasFullMatchData) {
+        // 完整战术分析（有 10 人数据）
+        console.log('[CyberMatchDetailModal] Using full tactical analysis with 10-player data');
+        
+        const playerTeamId = matchData.teamId;
+        const enemyTeamId = playerTeamId === 100 ? 200 : 100;
 
-MATCH DATA:
-- Champion: ${matchData.championName}
-- Result: ${matchData.win ? 'Victory' : 'Defeat'}
-- KDA: ${matchData.kills}/${matchData.deaths}/${matchData.assists} (${kda} KDA)
-- CS: ${matchData.cs || matchData.totalMinionsKilled || 0}
-- Vision Score: ${matchData.visionScore || 0}
-- Wards Placed: ${matchData.wardsPlaced || 0}
-- Wards Killed: ${matchData.wardsKilled || 0}
-- Damage: ${formatNumber(matchData.totalDamageDealtToChampions || matchData.damage || 0)}
-- Gold: ${formatNumber(matchData.goldEarned || 0)}
-- Level: ${matchData.champLevel || 0}
-- Duration: ${formatDuration(matchData.gameDurationInSec || matchData.gameDuration || 0)}
+        const getKDAString = (p: any) => `${p.kills}/${p.deaths}/${p.assists}`;
 
-Provide exactly 2 sections:
-1. "Your achievements" - 2-3 things done well in THIS match
-2. "Things to improve" - 3-4 specific areas to improve in THIS match
+        const allParticipants = matchData.participants.map((p: any) => ({
+          championName: p.championName,
+          role: p.position || p.lane,
+          kda: getKDAString(p),
+          totalDamageDealtToChampions: p.totalDamageDealtToChampions,
+          totalDamageTaken: p.totalDamageTaken,
+          teamId: p.teamId
+        }));
 
-Use the ### format with emojis and catchy titles. Base everything on the actual numbers above.`;
-      
-      const aiResponse = await postStatefulChatMessage(
-        fullPlayerData.PlayerID || playerPuuid,
-        analysisQuestion,
-        [],
-        fullPlayerData
-      );
-      
-      setAiAnalysis(aiResponse);
+        const myTeamData = allParticipants.filter((p: any) => p.teamId === playerTeamId);
+        const enemyTeamData = allParticipants.filter((p: any) => p.teamId === enemyTeamId);
+
+        const playerScoreboardData = {
+          kda: getKDAString(matchData),
+          cs: matchData.cs || 0,
+          csPerMin: matchData.csPerMin || 0,
+          gameDurationMinutes: Math.floor((matchData.gameDurationInSec || matchData.gameDuration || 0) / 60),
+          finalItems: [matchData.item0, matchData.item1, matchData.item2,
+                       matchData.item3, matchData.item4, matchData.item5, matchData.item6]
+                       .filter(id => id && id > 0),
+          damageDealt: matchData.damage || 0,
+          damageTaken: matchData.totalDamageTaken || 0,
+          visionScore: matchData.visionScore || 0,
+          championLevel: matchData.championLevel || 18
+        };
+
+        const gameDataForAI = {
+          myTeam: myTeamData,
+          enemyTeam: enemyTeamData,
+          player: {
+            championName: matchData.championName,
+            role: matchData.position || 'UNKNOWN',
+            scoreboard: playerScoreboardData
+          },
+          gameResult: matchData.win ? "Win" : "Loss" as "Win" | "Loss"
+        };
+
+        console.log("[CyberMatchDetailModal] Sending full tactical data for analysis:", gameDataForAI);
+
+        const aiResponse = await getTacticalAnalysis(
+          fullPlayerData.PlayerID || playerPuuid,
+          gameDataForAI,
+          [],
+          fullPlayerData
+        );
+
+        setAiAnalysis(aiResponse);
+      } else {
+        // 简化分析（只有玩家自己的数据）
+        console.log('[CyberMatchDetailModal] Using simplified analysis (no 10-player data available)');
+        
+        // 安全地转换数值
+        const safeNumber = (val: any, decimals: number = 1) => {
+          const num = Number(val);
+          return isNaN(num) ? '0' : num.toFixed(decimals);
+        };
+        
+        const csPerMin = safeNumber(matchData.csPerMin, 1);
+        const kda = matchData.deaths === 0 ? 'Perfect' : safeNumber((matchData.kills + matchData.assists) / matchData.deaths, 2);
+        
+        const simplifiedQuestion = `Analyze my performance in this match:
+
+Champion: ${matchData.championName}
+Result: ${matchData.win ? 'Victory' : 'Defeat'}
+KDA: ${matchData.kills}/${matchData.deaths}/${matchData.assists} (KDA: ${kda})
+CS: ${matchData.cs || 0} (${csPerMin} per min)
+Damage Dealt: ${(matchData.damage || 0).toLocaleString()}
+Damage Taken: ${(matchData.totalDamageTaken || 0).toLocaleString()}
+Vision Score: ${matchData.visionScore || 0}
+Game Duration: ${Math.floor((matchData.gameDurationInSec || matchData.gameDuration || 0) / 60)} minutes
+Items: ${[matchData.item0, matchData.item1, matchData.item2, matchData.item3, matchData.item4, matchData.item5, matchData.item6].filter(id => id && id > 0).join(', ')}
+
+Provide tactical insights and improvement suggestions based on this performance data. Focus on:
+1. KDA analysis - was I too aggressive or too passive?
+2. Farming efficiency - is my CS/min good for this champion?
+3. Damage output - did I contribute enough damage?
+4. Vision control - was my vision score adequate?
+5. Overall performance rating and key areas to improve.
+
+Use the format with [WARNING], [CRITICAL], [NOTICE], and [SUGGESTION] tags.`;
+
+        const aiResponse = await postStatefulChatMessage(
+          fullPlayerData.PlayerID || playerPuuid,
+          simplifiedQuestion,
+          [],
+          fullPlayerData
+        );
+
+        setAiAnalysis(aiResponse);
+      }
     } catch (error: any) {
       console.error('AI Analysis error:', error);
       setAnalysisError(error.message || 'AI analysis failed. Please try again.');
@@ -615,13 +872,16 @@ Use the ### format with emojis and catchy titles. Base everything on the actual 
               <div
                 className="border-2 rounded-lg p-6 text-center"
                 style={{
-                  borderColor: '#ffaa0040',
-                  background: 'linear-gradient(135deg, #1a1f0a 0%, #1a1f1a 100%)'
+                  borderColor: '#00ffff40',
+                  background: 'linear-gradient(135deg, #0a1a1f 0%, #0a1f1a 100%)'
                 }}
               >
-                <div className="text-[#ffaa00] mb-2">⚠️ LIMITED DATA</div>
-                <p className="text-sm text-[#666] font-mono">
-                  Full 10-player match data not available. Only showing your performance stats.
+                <div className="text-[#00ffff] mb-2">ℹ️ SIMPLIFIED VIEW</div>
+                <p className="text-sm text-[#888] font-mono mb-3">
+                  Showing your performance stats. Full team analysis available with enhanced match data.
+                </p>
+                <p className="text-xs text-[#666] font-mono">
+                  💡 Tip: AI Insights can still analyze your individual performance - click "GET AI INSIGHTS" above!
                 </p>
               </div>
             )}

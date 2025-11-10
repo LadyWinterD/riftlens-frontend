@@ -13,6 +13,7 @@ import { RiftAI } from "@/components/RiftAI";
 import { PlayerSearchBar } from "@/components/PlayerSearchBar";
 import { CyberLoadingScreen } from "@/components/CyberLoadingScreen";
 import CyberMatchDetailModal from "@/components/CyberMatchDetailModal";
+import { AboutTab } from "@/components/AboutTab";
 
 // [V21] 导入您项目中的 Shadcn UI 组件
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -427,7 +428,7 @@ export default function Home() {
         <PlayerSearchBar onSearch={handleSearch} isLoading={isLoading} />
         
         <Tabs defaultValue="report" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-[#0a0e27]/80 border-2 border-[#00ffff]/30 p-1">
+          <TabsList className="grid w-full grid-cols-4 mb-6 bg-[#0a0e27]/80 border-2 border-[#00ffff]/30 p-1">
             <TabsTrigger 
               value="report" 
               className="data-[state=active]:bg-[#00ffff]/20 data-[state=active]:text-[#00ffff] data-[state=active]:border-2 data-[state=active]:border-[#00ffff] text-[#666] font-mono uppercase tracking-wider transition-all"
@@ -446,6 +447,12 @@ export default function Home() {
               className="data-[state=active]:bg-[#00ffff]/20 data-[state=active]:text-[#00ffff] data-[state=active]:border-2 data-[state=active]:border-[#00ffff] text-[#666] font-mono uppercase tracking-wider transition-all"
             >
               ⚔️ CHAMPIONS
+            </TabsTrigger>
+            <TabsTrigger 
+              value="about" 
+              className="data-[state=active]:bg-[#ffff00]/20 data-[state=active]:text-[#ffff00] data-[state=active]:border-2 data-[state=active]:border-[#ffff00] text-[#666] font-mono uppercase tracking-wider transition-all"
+            >
+              ℹ️ ABOUT
             </TabsTrigger>
           </TabsList>
 
@@ -608,6 +615,15 @@ export default function Home() {
                   </>
                 )}
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Tab 4: About */}
+          <TabsContent value="about">
+            <div className="bg-[#0a0e27]/80 border-2 border-[#ffff00]/40 p-6 backdrop-blur-sm">
+              <ScrollArea className="h-[800px] pr-4">
+                <AboutTab />
+              </ScrollArea>
             </div>
           </TabsContent>
         </Tabs>

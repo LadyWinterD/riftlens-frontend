@@ -1,6 +1,7 @@
 import { ScrollArea } from './ui/scroll-area';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { postStatefulChatMessage } from '@/services/awsService';
 
 const analysisData = [
   {
@@ -44,13 +45,222 @@ interface CyberAnalysisPanelProps {
 
 export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
   const [activeCategory, setActiveCategory] = useState(0);
+  const [aiGeneratedData, setAiGeneratedData] = useState<any>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState('');
+
+  // 当 playerData 加载时，自动请求 AI 分析
+  useEffect(() => {
+    if (playerData && !aiGeneratedData && !isLoadingAI) {
+      generateAIAnalysis();
+    }
+  }, [playerData]);
+
+  // 调用 AI 生成分析
+  const generateAIAnalysis = async () => {
+    if (!playerData || !playerData.annualStats) return;
+
+    setIsLoadingAI(true);
+    setLoadingProgress(0);
+    
+    let progressInterval: NodeJS.Timeout | null = null;
+    let messageInterval: NodeJS.Timeout | null = null;
+    
+    try {
+      // 模拟进度条
+      progressInterval = setInterval(() => {
+        setLoadingProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 15;
+        });
+      }, 300);
+
+      // 搞笑加载文本
+      const funnyMessages = [
+        '🔍 Scanning your embarrassing match history...',
+        '😱 Found your 0/10 game... analyzing...',
+        '🤔 Calculating how many times you died to jungle camps...',
+        '💀 Counting your "tactical deaths"...',
+        '🎯 Measuring your skill... still measuring...',
+        '🧠 AI is laughing at your builds...',
+        '📊 Crunching numbers... and your ego...',
+        '🔥 Roasting your gameplay... please wait...',
+      ];
+      
+      let messageIndex = 0;
+      setLoadingMessage(funnyMessages[0]);
+      messageInterval = setInterval(() => {
+        messageIndex = (messageIndex + 1) % funnyMessages.length;
+        setLoadingMessage(funnyMessages[messageIndex]);
+      }, 2000);
+      const stats = playerData.annualStats;
+      const winRate = (Number(stats.winRate) * 100).toFixed(0);
+      const kda = Number(stats.avgKDA || 0).toFixed(2);
+      const csPerMin = Number(stats.avgCsPerMin || 0).toFixed(1);
+      const visionPerMin = Number(stats.avgVisionPerMin || 0).toFixed(2);
+      const topChamps = Object.entries(stats.championCounts || {}).slice(0, 3);
+
+      const analysisQuestion = `Provide a NEURAL ANALYSIS CORE report for this player's overall performance:
+
+ANNUAL STATISTICS:
+- Win Rate: ${winRate}%
+- Average KDA: ${kda}
+- CS per minute: ${csPerMin}
+- Vision per minute: ${visionPerMin}
+- Total Games: ${stats.totalGames || 0}
+- Top Champions: ${topChamps.map(([name, games]) => `${name} (${games} games)`).join(', ')}
+
+Provide analysis in 3 categories:
+
+### STRENGTHS
+List 2-4 things the player does well. Use emojis and be encouraging but honest.
+
+### WEAKNESSES  
+List 2-4 areas that need improvement. Be brutally honest and funny. Use emojis.
+
+### AI INSIGHTS
+Provide 3-4 actionable recommendations. Be specific and use emojis.
+
+Use lots of emojis, ALL CAPS for emphasis, and make it engaging and colorful!`;
+
+      const aiResponse = await postStatefulChatMessage(
+        playerData.PlayerID,
+        analysisQuestion,
+        [],
+        playerData
+      );
+
+      // 解析 AI 回复为三个类别
+      const parsed = parseAIResponse(aiResponse);
+      
+      if (progressInterval) clearInterval(progressInterval);
+      if (messageInterval) clearInterval(messageInterval);
+      setLoadingProgress(100);
+      setLoadingMessage('✅ Analysis complete!');
+      
+      // 短暂延迟后显示结果
+      setTimeout(() => {
+        setAiGeneratedData(parsed);
+        setIsLoadingAI(false);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to generate AI analysis:', error);
+      if (progressInterval) clearInterval(progressInterval);
+      if (messageInterval) clearInterval(messageInterval);
+      setLoadingMessage('❌ AI failed... using backup roasts');
+      // 如果失败，使用默认数据
+      setTimeout(() => {
+        setAiGeneratedData(null);
+        setIsLoadingAI(false);
+      }, 1000);
+    }
+  };
+
+  // 解析 AI 回复
+  const parseAIResponse = (text: string) => {
+    console.log('[CyberAnalysisPanel] Parsing AI response:', text.substring(0, 300));
+    
+    const result: any = {
+      strengths: { items: [] },
+      weaknesses: { items: [] },
+      insights: { items: [] }
+    };
+
+    // 按 ### 分割章节
+    const sections = text.split(/###\s+/g).filter(s => s.trim());
+    
+    sections.forEach((section, index) => {
+      const lines = section.trim().split('\n').filter(l => l.trim());
+      if (lines.length === 0) return;
+
+      const sectionTitle = lines[0].trim();
+      const sectionContent = lines.slice(1).join('\n').trim();
+      
+      // 提取章节标题（去除 emoji 和特殊字符）
+      const titleClean = sectionTitle.replace(/[📊🏆🎯👁️⚔️🌾📈💀🐻😱💰🛡️📉]/g, '').trim().toUpperCase();
+      
+      console.log(`[CyberAnalysisPanel] Section ${index}: "${titleClean}"`);
+
+      // 简单直接的匹配
+      if (titleClean.includes('STRENGTH')) {
+        result.strengths.items.push({ 
+          title: 'Performance Highlights', 
+          text: sectionContent 
+        });
+      } else if (titleClean.includes('WEAKNESS')) {
+        result.weaknesses.items.push({ 
+          title: 'Areas to Improve', 
+          text: sectionContent 
+        });
+      } else if (titleClean.includes('INSIGHT') || titleClean.includes('RECOMMENDATION')) {
+        result.insights.items.push({ 
+          title: 'AI Recommendations', 
+          text: sectionContent 
+        });
+      } else {
+        // 如果标题不明确，根据内容判断
+        const contentUpper = sectionContent.toUpperCase();
+        if (contentUpper.includes('[CRITICAL]') || contentUpper.includes('[WARNING]')) {
+          result.weaknesses.items.push({ 
+            title: sectionTitle.replace(/[📊🏆🎯👁️⚔️🌾📈💀🐻😱💰🛡️📉]/g, '').trim(), 
+            text: sectionContent 
+          });
+        } else if (contentUpper.includes('[SUGGESTION]')) {
+          result.insights.items.push({ 
+            title: sectionTitle.replace(/[📊🏆🎯👁️⚔️🌾📈💀🐻😱💰🛡️📉]/g, '').trim(), 
+            text: sectionContent 
+          });
+        } else {
+          result.strengths.items.push({ 
+            title: sectionTitle.replace(/[📊🏆🎯👁️⚔️🌾📈💀🐻😱💰🛡️📉]/g, '').trim(), 
+            text: sectionContent 
+          });
+        }
+      }
+    });
+
+    // 如果某个类别为空，添加占位符
+    if (result.strengths.items.length === 0) {
+      result.strengths.items.push({ 
+        title: 'Analyzing Performance...', 
+        text: '🔍 AI is analyzing your strengths across all games...' 
+      });
+    }
+    if (result.weaknesses.items.length === 0) {
+      result.weaknesses.items.push({ 
+        title: 'Analyzing Weaknesses...', 
+        text: '🔍 AI is identifying areas for improvement...' 
+      });
+    }
+    if (result.insights.items.length === 0) {
+      result.insights.items.push({ 
+        title: 'Generating Insights...', 
+        text: '🔍 AI is creating personalized recommendations...' 
+      });
+    }
+
+    console.log('[CyberAnalysisPanel] Parsed result:', {
+      strengths: result.strengths.items.length,
+      weaknesses: result.weaknesses.items.length,
+      insights: result.insights.items.length
+    });
+
+    return [
+      { category: 'STRENGTHS', color: '#00ff00', icon: '▲', items: result.strengths.items },
+      { category: 'WEAKNESSES', color: '#ff0000', icon: '▼', items: result.weaknesses.items },
+      { category: 'AI INSIGHTS', color: '#ffff00', icon: '◆', items: result.insights.items }
+    ];
+  };
 
   // 渲染带特效的文本
   const renderStyledText = (text: string) => {
-    // 先处理彩虹标签
-    const parts = text.split(/(<rainbow>.*?<\/rainbow>)/g);
+    // 先处理所有特殊标签
+    const parts = text.split(/(<rainbow>.*?<\/rainbow>|<stat>.*?<\/stat>|<champion>.*?<\/champion>|<item>.*?<\/item>)/g);
     
     return parts.map((part, partIndex) => {
+      // 彩虹标签
       if (part.startsWith('<rainbow>') && part.endsWith('</rainbow>')) {
         const content = part.replace(/<\/?rainbow>/g, '');
         return (
@@ -71,6 +281,93 @@ export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
               duration: 3,
               repeat: Infinity,
               ease: 'linear',
+            }}
+          >
+            {content}
+          </motion.span>
+        );
+      }
+      
+      // 统计数据标签 <stat>
+      if (part.startsWith('<stat>') && part.endsWith('</stat>')) {
+        const content = part.replace(/<\/?stat>/g, '');
+        return (
+          <motion.span
+            key={partIndex}
+            className="inline-block font-bold text-[#ffff00] px-1"
+            style={{
+              textShadow: '0 0 10px rgba(255, 255, 0, 0.8)',
+            }}
+            animate={{
+              scale: [1, 1.1, 1],
+              textShadow: [
+                '0 0 10px rgba(255, 255, 0, 0.8)',
+                '0 0 20px rgba(255, 255, 0, 1)',
+                '0 0 10px rgba(255, 255, 0, 0.8)',
+              ],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            {content}
+          </motion.span>
+        );
+      }
+      
+      // 英雄名称标签 <champion>
+      if (part.startsWith('<champion>') && part.endsWith('</champion>')) {
+        const content = part.replace(/<\/?champion>/g, '');
+        return (
+          <motion.span
+            key={partIndex}
+            className="inline-block font-bold text-[#00ffff] px-1"
+            style={{
+              textShadow: '0 0 10px rgba(0, 255, 255, 0.8)',
+            }}
+            animate={{
+              opacity: [1, 0.7, 1],
+              textShadow: [
+                '0 0 10px rgba(0, 255, 255, 0.8)',
+                '0 0 20px rgba(0, 255, 255, 1)',
+                '0 0 10px rgba(0, 255, 255, 0.8)',
+              ],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            {content}
+          </motion.span>
+        );
+      }
+      
+      // 装备名称标签 <item>
+      if (part.startsWith('<item>') && part.endsWith('</item>')) {
+        const content = part.replace(/<\/?item>/g, '');
+        return (
+          <motion.span
+            key={partIndex}
+            className="inline-block font-bold text-[#ff00ff] px-1"
+            style={{
+              textShadow: '0 0 10px rgba(255, 0, 255, 0.8)',
+            }}
+            animate={{
+              opacity: [1, 0.8, 1],
+              textShadow: [
+                '0 0 10px rgba(255, 0, 255, 0.8)',
+                '0 0 15px rgba(255, 0, 255, 1)',
+                '0 0 10px rgba(255, 0, 255, 0.8)',
+              ],
+            }}
+            transition={{
+              duration: 1.8,
+              repeat: Infinity,
+              ease: 'easeInOut',
             }}
           >
             {content}
@@ -277,7 +574,8 @@ export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
     ];
   };
 
-  const displayData = playerData ? generateRoastAnalysis() : analysisData;
+  // 使用 AI 生成的数据（如果有），否则使用本地生成或默认数据
+  const displayData = aiGeneratedData || (playerData ? generateRoastAnalysis() : analysisData);
 
   return (
     <div className="bg-[#0a0e27]/80 border-2 border-[#00ffff]/30 backdrop-blur-sm overflow-hidden">
@@ -296,8 +594,10 @@ export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-[#00ff00] rounded-full animate-pulse"></div>
-            <span className="text-[#00ff00] text-xs font-mono">ANALYZING</span>
+            <div className={`w-2 h-2 rounded-full animate-pulse ${isLoadingAI ? 'bg-[#ffff00]' : 'bg-[#00ff00]'}`}></div>
+            <span className={`text-xs font-mono ${isLoadingAI ? 'text-[#ffff00]' : 'text-[#00ff00]'}`}>
+              {isLoadingAI ? 'AI GENERATING...' : aiGeneratedData ? 'AI COMPLETE' : 'ANALYZING'}
+            </span>
           </div>
         </div>
       </div>
@@ -336,8 +636,81 @@ export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
 
       {/* Content Area */}
       <ScrollArea className="h-[500px] p-6">
-        <div className="space-y-4">
-          {displayData[activeCategory].items.map((item, idx) => (
+        {isLoadingAI ? (
+          // AI 加载动画
+          <div className="flex flex-col items-center justify-center h-full space-y-6">
+            <motion.div
+              className="text-6xl"
+              animate={{ 
+                rotate: 360,
+                scale: [1, 1.2, 1]
+              }}
+              transition={{
+                rotate: { duration: 2, repeat: Infinity, ease: 'linear' },
+                scale: { duration: 1, repeat: Infinity, ease: 'easeInOut' }
+              }}
+            >
+              🧠
+            </motion.div>
+            
+            <div className="w-full max-w-md space-y-4">
+              <div className="text-center">
+                <motion.p
+                  className="text-[#00ffff] font-mono text-lg mb-2"
+                  style={{ textShadow: '0 0 10px #00ffff' }}
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  {loadingMessage}
+                </motion.p>
+              </div>
+              
+              {/* 进度条 */}
+              <div className="relative w-full h-4 bg-[#1a1f3a] border-2 border-[#00ffff] overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#00ffff] via-[#ff00ff] to-[#ffff00]"
+                  style={{ 
+                    width: `${loadingProgress}%`,
+                    boxShadow: '0 0 20px rgba(0,255,255,0.8)'
+                  }}
+                  transition={{ duration: 0.3 }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-white text-xs font-mono font-bold z-10">
+                    {Math.round(loadingProgress)}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* 搞笑提示 */}
+              <div className="text-center space-y-1">
+                <motion.p
+                  className="text-[#666] text-xs font-mono"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  &gt; Analyzing your questionable decisions...
+                </motion.p>
+                <motion.p
+                  className="text-[#666] text-xs font-mono"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 0.7 }}
+                >
+                  &gt; Preparing brutal honesty...
+                </motion.p>
+                <motion.p
+                  className="text-[#666] text-xs font-mono"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 2, repeat: Infinity, delay: 1.4 }}
+                >
+                  &gt; Loading roast database...
+                </motion.p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+          {displayData[activeCategory].items.map((item: any, idx: number) => (
               <div
                 key={idx}
                 className="relative bg-[#0a0e27]/60 border-l-2 p-4 group hover:bg-[#0a0e27]/80 transition-all"
@@ -385,6 +758,7 @@ export function CyberAnalysisPanel({ playerData }: CyberAnalysisPanelProps) {
               </div>
             ))}
           </div>
+        )}
       </ScrollArea>
 
       {/* Footer */}
