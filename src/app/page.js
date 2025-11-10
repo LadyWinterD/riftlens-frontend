@@ -222,23 +222,94 @@ export default function Home() {
         }} />
 
         {/* Loading Content */}
-        <div className="relative z-10 text-center">
-          <div className="text-6xl mb-8 animate-pulse">🔍</div>
-          <div className="text-4xl text-[#00ffff] font-mono mb-4" style={{
-            textShadow: '0 0 20px #00ffff'
+        <div className="relative z-10 text-center max-w-2xl mx-auto px-4">
+          {/* Icon */}
+          <div className="text-8xl mb-8 animate-pulse filter drop-shadow-[0_0_30px_#00ffff]">
+            🔍
+          </div>
+          
+          {/* Title */}
+          <div className="text-5xl text-[#00ffff] font-mono mb-6 uppercase tracking-wider" style={{
+            textShadow: '0 0 20px #00ffff, 0 0 40px #00ffff'
           }}>
             NEURAL SCAN IN PROGRESS
           </div>
-          <div className="flex items-center justify-center gap-2 text-[#ff00ff] font-mono">
-            <span className="animate-pulse">▓</span>
-            <span className="animate-pulse delay-100">▓</span>
-            <span className="animate-pulse delay-200">▓</span>
-            <span className="text-[#666]">ANALYZING PLAYER DATA</span>
-            <span className="animate-pulse delay-200">▓</span>
-            <span className="animate-pulse delay-100">▓</span>
-            <span className="animate-pulse">▓</span>
+          
+          {/* Subtitle */}
+          <div className="text-[#ff00ff] font-mono text-lg mb-8 tracking-wide" style={{
+            textShadow: '0 0 10px #ff00ff'
+          }}>
+            ANALYZING PLAYER DATA...
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full max-w-xl mx-auto space-y-4">
+            <div className="relative h-8 bg-[#1a1f3a] border-4 border-[#00ffff] overflow-hidden">
+              {/* Animated gradient bar */}
+              <div 
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#00ffff] via-[#00ffff] to-[#ff00ff]"
+                style={{
+                  width: '100%',
+                  boxShadow: '0 0 20px #00ffff, 0 0 40px #00ffff',
+                  animation: 'pulse 2s ease-in-out infinite'
+                }}
+              />
+              {/* Scanning line */}
+              <div 
+                className="absolute top-0 bottom-0 w-2 bg-white opacity-80"
+                style={{
+                  animation: 'scan 2s linear infinite'
+                }}
+              />
+              {/* Percentage text */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-mono text-white relative z-10 mix-blend-difference font-bold">
+                  LOADING...
+                </span>
+              </div>
+            </div>
+
+            {/* Status indicators */}
+            <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#00ff00] animate-pulse" />
+                <span className="text-[#666]">
+                  STATUS: <span className="text-[#00ff00]">ACTIVE</span>
+                </span>
+              </div>
+              <span className="text-[#666]">
+                NEURAL LINK: <span className="text-[#00ffff]">STABLE</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Loading phases */}
+          <div className="mt-8 space-y-2">
+            <div className="flex items-center justify-center gap-2 text-[#666] text-sm font-mono">
+              <span className="animate-pulse">▓</span>
+              <span>Connecting to database</span>
+              <span className="animate-pulse">▓</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-[#666] text-sm font-mono">
+              <span className="animate-pulse delay-100">▓</span>
+              <span>Retrieving match history</span>
+              <span className="animate-pulse delay-100">▓</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-[#666] text-sm font-mono">
+              <span className="animate-pulse delay-200">▓</span>
+              <span>Processing statistics</span>
+              <span className="animate-pulse delay-200">▓</span>
+            </div>
           </div>
         </div>
+
+        {/* Add keyframe animations */}
+        <style jsx>{`
+          @keyframes scan {
+            0% { left: 0%; }
+            100% { left: 100%; }
+          }
+        `}</style>
       </div>
     );
   }

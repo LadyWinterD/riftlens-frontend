@@ -132,22 +132,15 @@ export function RiftAI({ playerData }: RiftAIProps) {
   }, [playerData]);
 
   // [!! V21 关键 !!]
-  // 当 'playerData' 从 page.js 传入时，初始化聊天历史（但不自动打开）
+  // 当 'playerData' 从 page.js 传入时，记录日志但不自动添加消息
   useEffect(() => {
     if (playerData) {
       console.log('[RiftAI] playerData received:', {
         hasPlayerID: !!playerData.PlayerID,
-        PlayerID: playerData.PlayerID,
-        hasDefaultRoast: !!playerData.aiAnalysis_DefaultRoast
+        PlayerID: playerData.PlayerID
       });
-      
-      if (playerData.aiAnalysis_DefaultRoast) {
-        setChatHistory([
-          { role: 'assistant', content: playerData.aiAnalysis_DefaultRoast }
-        ]);
-        // 移除自动打开：用户需要点击 AI 头像才会打开
-        // setIsMainOpen(true);
-      }
+      // 不再自动添加默认分析到聊天历史
+      // 用户需要主动点击预设问题或输入问题
     }
   }, [playerData]); 
 

@@ -83,50 +83,85 @@ export default function CyberMatchDetailModal({
     return num?.toLocaleString('en-US') || '0';
   };
 
-  // Format AI analysis text with highlighted numbers and keywords
+  // Format AI analysis with proper styling
   const formatAIAnalysis = (text: string) => {
     if (!text) return null;
     
-    // Split by lines
     const lines = text.split('\n');
+    const elements: React.ReactElement[] = [];
     
-    return lines.map((line, lineIdx) => {
-      // Highlight numbers (including decimals and percentages)
-      const parts = line.split(/(\d+\.?\d*%?|\b(?:KDA|CS|damage|gold|vision|kills|deaths|assists)\b)/gi);
-      
-      return (
-        <div key={lineIdx} className="mb-2">
-          {parts.map((part, partIdx) => {
-            // Check if it's a number
-            if (/^\d+\.?\d*%?$/.test(part)) {
-              return (
-                <span
-                  key={partIdx}
-                  className="text-[#00ffff] font-bold"
-                  style={{ textShadow: '0 0 10px #00ffff' }}
-                >
-                  {part}
-                </span>
-              );
-            }
-            // Check if it's a keyword
-            if (/^(KDA|CS|damage|gold|vision|kills|deaths|assists)$/i.test(part)) {
-              return (
-                <span
-                  key={partIdx}
-                  className="text-[#ffff00] font-semibold"
-                >
-                  {part}
-                </span>
-              );
-            }
-            // Regular text
-            return <span key={partIdx}>{part}</span>;
-          })}
-        </div>
-      );
+    lines.forEach((line, index) => {
+      // Main title (### )
+      if (line.startsWith('### ')) {
+        const title = line.replace('### ', '').replace(/["\"\"]/g, '').trim();
+        elements.push(
+          <h3 
+            key={index} 
+            className="text-xl text-[#00ffff] font-bold uppercase tracking-wide mt-4 mb-2"
+            style={{ textShadow: '0 0 15px #00ffff' }}
+          >
+            {title}
+          </h3>
+        );
+      }
+      // Subtitle (## )
+      else if (line.startsWith('## ')) {
+        const subtitle = line.replace('## ', '').replace(/["\"\"]/g, '').trim();
+        elements.push(
+          <h4 
+            key={index} 
+            className="text-base text-[#ff6b6b] font-semibold uppercase tracking-wide mt-3 mb-1.5"
+            style={{ textShadow: '0 0 8px rgba(255,107,107,0.5)' }}
+          >
+            {subtitle}
+          </h4>
+        );
+      }
+      // Bold text (**text**)
+      else if (line.match(/^\*\*(.+?)\*\*$/)) {
+        const boldText = line.replace(/\*\*/g, '').replace(/["\"\"]/g, '').trim();
+        elements.push(
+          <h4 
+            key={index} 
+            className="text-base text-[#ff6b6b] font-bold uppercase tracking-wide mt-3 mb-2"
+            style={{ textShadow: '0 0 10px rgba(255,107,107,0.6)' }}
+          >
+            {boldText}
+          </h4>
+        );
+      }
+      // Empty line
+      else if (line.trim() === '') {
+        elements.push(<div key={index} className="h-2" />);
+      }
+      // Regular text with number highlighting
+      else if (line.trim()) {
+        const parts = line.split(/(\d+[.,]?\d*%?|\b\d+\b)/g);
+        elements.push(
+          <p key={index} className="text-[#ccc] font-mono my-1 leading-relaxed">
+            {parts.map((part, i) => {
+              if (/^\d+[.,]?\d*%?$/.test(part) || /^\d+$/.test(part)) {
+                return (
+                  <span 
+                    key={i} 
+                    className="text-[#ffff00] font-bold"
+                    style={{ textShadow: '0 0 8px rgba(255,255,0,0.6)' }}
+                  >
+                    {part}
+                  </span>
+                );
+              }
+              return <span key={i}>{part}</span>;
+            })}
+          </p>
+        );
+      }
     });
+    
+    return elements;
   };
+
+
 
   const getChampionId = (champion: string) => {
     if (!champion) return 'Aatrox';
@@ -168,7 +203,29 @@ export default function CyberMatchDetailModal({
     setAnalysisError(null);
 
     try {
-      const analysisQuestion = `Analyze my performance in this match (${matchData.championName}, ${matchData.win ? 'Victory' : 'Defeat'}). KDA: ${matchData.kills}/${matchData.deaths}/${matchData.assists}, CS: ${matchData.cs}, Damage: ${matchData.damage}. What should I improve?`;
+      // 构建详细的比赛数据
+      const kda = matchData.deaths > 0 ? ((matchData.kills + matchData.assists) / matchData.deaths).toFixed(2) : 'Perfect';
+      
+      const analysisQuestion = `Analyze this match and provide GAME INSIGHTS:
+
+MATCH DATA:
+- Champion: ${matchData.championName}
+- Result: ${matchData.win ? 'Victory' : 'Defeat'}
+- KDA: ${matchData.kills}/${matchData.deaths}/${matchData.assists} (${kda} KDA)
+- CS: ${matchData.cs || matchData.totalMinionsKilled || 0}
+- Vision Score: ${matchData.visionScore || 0}
+- Wards Placed: ${matchData.wardsPlaced || 0}
+- Wards Killed: ${matchData.wardsKilled || 0}
+- Damage: ${formatNumber(matchData.totalDamageDealtToChampions || matchData.damage || 0)}
+- Gold: ${formatNumber(matchData.goldEarned || 0)}
+- Level: ${matchData.champLevel || 0}
+- Duration: ${formatDuration(matchData.gameDurationInSec || matchData.gameDuration || 0)}
+
+Provide exactly 2 sections:
+1. "Your achievements" - 2-3 things done well in THIS match
+2. "Things to improve" - 3-4 specific areas to improve in THIS match
+
+Use the ### format with emojis and catchy titles. Base everything on the actual numbers above.`;
       
       const aiResponse = await postStatefulChatMessage(
         fullPlayerData.PlayerID || playerPuuid,
@@ -290,90 +347,8 @@ export default function CyberMatchDetailModal({
                   </div>
                 </button>
               ) : (
-                <div className="space-y-6">
-                  {/* Your achievements */}
-                  <div>
-                    <h4 className="text-[#00ffaa] text-lg font-mono mb-4">Your achievements</h4>
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#00ffaa]/20 border-2 border-[#00ffaa] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🎯</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#00ffaa] font-semibold mb-1">Lane Tyrant</h5>
-                          <p className="text-sm text-[#ccc]">
-                            Crush your enemies. See them flee before you and your <span className="text-[#00ffaa] font-bold">595</span> gold difference @15 in lane.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#00ffaa]/20 border-2 border-[#00ffaa] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">👁️</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#00ffaa] font-semibold mb-1">Servant of Darkness</h5>
-                          <p className="text-sm text-[#ccc]">
-                            Enemy wards aren't safe when you are in charge. You cleared <span className="text-[#00ffaa] font-bold">3</span> wards this game.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Things to improve */}
-                  <div>
-                    <h4 className="text-[#ff6b9d] text-lg font-mono mb-4">Things to improve</h4>
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#ff6b9d]/20 border-2 border-[#ff6b9d] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🔮</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#ff6b9d] font-semibold mb-1">No Control</h5>
-                          <p className="text-sm text-[#ccc]">
-                            You didn't place a single control ward all game. I know you want to save money for those juicy items, but knowledge gives you the power to get more items.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#ff6b9d]/20 border-2 border-[#ff6b9d] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">👁️</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#ff6b9d] font-semibold mb-1">Not a Fan of Wards</h5>
-                          <p className="text-sm text-[#ccc]">
-                            You only placed <span className="text-[#ff6b9d] font-bold">1</span> wards this game. Try to make better use of your trinkets to keep you and your team aware of enemy movements.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#ff6b9d]/20 border-2 border-[#ff6b9d] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">🐉</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#ff6b9d] font-semibold mb-1">Where Are Your Dragons?</h5>
-                          <p className="text-sm text-[#ccc]">
-                            Your team did not get a single dragon this game. The stats boost you get from dragons can be impactful throughout the course of the game. Look to play around enemy base times to grab a quick uncontested dragon.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#ff6b9d]/20 border-2 border-[#ff6b9d] flex items-center justify-center flex-shrink-0">
-                          <span className="text-2xl">⚡</span>
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-[#ff6b9d] font-semibold mb-1">What Powerspike?</h5>
-                          <p className="text-sm text-[#ccc]">
-                            You never reached level 11 this game. Make sure you don't waste your time running aimlessly around the map. Use your time to pressure objectives with your team or get picks. Otherwise, make sure you're catching side waves regularly.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="space-y-4">
+                  {formatAIAnalysis(aiAnalysis)}
                 </div>
               )}
 

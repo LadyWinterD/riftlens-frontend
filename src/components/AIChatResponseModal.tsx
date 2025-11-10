@@ -76,6 +76,48 @@ export function AIChatResponseModal({
     setIsTyping(false);
   };
 
+  // 清理文本中的引号和特殊字符
+  const cleanText = (text: string) => {
+    // 移除所有类型的引号：直引号、弯引号、中文引号
+    return text
+      .replace(/["""''「」『』]/g, '')
+      .replace(/^["'\s]+|["'\s]+$/g, '')  // 移除首尾的引号和空格
+      .trim();
+  };
+
+  // 高亮数字和特殊文本
+  const highlightText = (text: string) => {
+    // 先清理引号
+    const cleanedText = cleanText(text);
+    
+    // 匹配数字（包括百分比、小数、带逗号的数字）
+    const parts = cleanedText.split(/(\d+[.,]?\d*%?|\b\d+\b)/g);
+    
+    return parts.map((part, i) => {
+      // 如果是数字
+      if (/^\d+[.,]?\d*%?$/.test(part) || /^\d+$/.test(part)) {
+        return (
+          <span 
+            key={i} 
+            className="text-[#ffff00] font-bold"
+            style={{ textShadow: '0 0 8px rgba(255,255,0,0.6)' }}
+          >
+            {part}
+          </span>
+        );
+      }
+      // 高亮特殊关键词
+      if (part.match(/\b(KDA|CS|vision|gold|damage|kills|deaths|assists|win rate)\b/i)) {
+        return (
+          <span key={i} className="text-[#00ffff]">
+            {part}
+          </span>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
   // 格式化AI回答 - 支持特殊语法
   const formatAnswer = (text: string) => {
     const lines = text.split('\n');
@@ -84,19 +126,40 @@ export function AIChatResponseModal({
     lines.forEach((line, index) => {
       // 标题 (以 ### 开头)
       if (line.startsWith('### ')) {
+        const title = cleanText(line.replace('### ', ''));
         elements.push(
-          <h3 key={index} className="text-xl text-[#00ffff] font-mono uppercase tracking-wider mt-4 mb-2"
-            style={{ textShadow: '0 0 10px #00ffff' }}>
-            {line.replace('### ', '')}
+          <h3 
+            key={index} 
+            className="text-2xl text-[#00ffff] font-bold uppercase tracking-wide mt-6 mb-3"
+            style={{ textShadow: '0 0 15px #00ffff, 0 0 30px rgba(0,255,255,0.5)' }}
+          >
+            {title}
           </h3>
         );
       }
-      // 子标题 (以 ## 开头)
+      // 子标题 (以 ## 开头) - 用于副标题
       else if (line.startsWith('## ')) {
+        const subtitle = cleanText(line.replace('## ', ''));
         elements.push(
-          <h4 key={index} className="text-lg text-[#ff00ff] font-mono uppercase tracking-wider mt-3 mb-2"
-            style={{ textShadow: '0 0 8px #ff00ff' }}>
-            {line.replace('## ', '')}
+          <h4 
+            key={index} 
+            className="text-sm text-[#ff6b6b] font-semibold uppercase tracking-wider mt-3 mb-1.5"
+            style={{ textShadow: '0 0 8px rgba(255,107,107,0.5)' }}
+          >
+            {subtitle}
+          </h4>
+        );
+      }
+      // 粗体标题行（如 "**Decent Win Rate**"）
+      else if (line.match(/^\*\*(.+?)\*\*$/)) {
+        const boldText = cleanText(line.replace(/\*\*/g, ''));
+        elements.push(
+          <h4 
+            key={index} 
+            className="text-base text-[#ff6b6b] font-bold uppercase tracking-wide mt-3 mb-2"
+            style={{ textShadow: '0 0 10px rgba(255,107,107,0.6)' }}
+          >
+            {boldText}
           </h4>
         );
       }
@@ -104,7 +167,7 @@ export function AIChatResponseModal({
       else if (line.startsWith('>>> ')) {
         elements.push(
           <div key={index} className="border-l-4 border-[#ff0000] bg-[#ff0000]/10 pl-4 py-2 my-2">
-            <span className="text-[#ff0000] font-mono">{line.replace('>>> ', '')}</span>
+            <span className="text-[#ff0000] font-mono">{highlightText(line.replace('>>> ', ''))}</span>
           </div>
         );
       }
@@ -112,7 +175,7 @@ export function AIChatResponseModal({
       else if (line.startsWith('+++ ')) {
         elements.push(
           <div key={index} className="border-l-4 border-[#00ff00] bg-[#00ff00]/10 pl-4 py-2 my-2">
-            <span className="text-[#00ff00] font-mono">{line.replace('+++ ', '')}</span>
+            <span className="text-[#00ff00] font-mono">{highlightText(line.replace('+++ ', ''))}</span>
           </div>
         );
       }
@@ -121,17 +184,18 @@ export function AIChatResponseModal({
         elements.push(
           <div key={index} className="flex items-start gap-3 my-1 ml-4">
             <span className="text-[#00ffff] mt-1">▸</span>
-            <span className="text-[#aaa] font-mono flex-1">{line.replace(/^[\-•]\s/, '')}</span>
+            <span className="text-[#ccc] font-mono flex-1">{highlightText(line.replace(/^[\-•]\s/, ''))}</span>
           </div>
         );
       }
       // 数字列表 (以数字. 开头)
       else if (line.match(/^\d+\.\s/)) {
         const number = line.match(/^(\d+)\.\s/)?.[1];
+        const content = line.replace(/^\d+\.\s/, '');
         elements.push(
           <div key={index} className="flex items-start gap-3 my-1 ml-4">
-            <span className="text-[#ffff00] font-mono min-w-[24px]">{number}.</span>
-            <span className="text-[#aaa] font-mono flex-1">{line.replace(/^\d+\.\s/, '')}</span>
+            <span className="text-[#ffff00] font-mono min-w-[24px] font-bold">{number}.</span>
+            <span className="text-[#ccc] font-mono flex-1">{highlightText(content)}</span>
           </div>
         );
       }
@@ -145,10 +209,12 @@ export function AIChatResponseModal({
       else if (line.trim() === '') {
         elements.push(<div key={index} className="h-2" />);
       }
-      // 普通文本
+      // 普通文本（带数字高亮）
       else {
         elements.push(
-          <p key={index} className="text-[#aaa] font-mono my-1 leading-relaxed">{line}</p>
+          <p key={index} className="text-[#bbb] font-mono my-1 leading-relaxed text-base">
+            {highlightText(line)}
+          </p>
         );
       }
     });

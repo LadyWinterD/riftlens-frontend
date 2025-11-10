@@ -18,7 +18,8 @@ export default function MatchLogTab({ report }) {
         {matches.map((match, index) => (
           <CyberMatchCard 
             key={match.matchId} 
-            match={match} 
+            {...match}
+            matchData={match}
             gameNumber={matches.length - index} 
           />
         ))}

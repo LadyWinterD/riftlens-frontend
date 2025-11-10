@@ -212,14 +212,30 @@ Below are all 10 players in this match for context:
 </all_participants>
 </match_data>
 
+**RESPONSE FORMAT (CRITICAL):**
+You MUST format your response using this structure:
+
+### [Catchy Title]
+[Emoji] [Title]
+[Detailed description with ACTUAL numbers from THIS match data]
+
+**Format Rules:**
+1. Start each insight with ### followed by a catchy title
+2. Use relevant emojis: 🎯 (lane dominance), 👁️ (vision), 🔮 (control wards), 🐉 (objectives), ⚡ (levels/power), 💀 (deaths), ⚔️ (damage), 🛡️ (tankiness), 💰 (gold), 📊 (stats)
+3. Create unique, memorable titles based on the player's actual performance
+4. Include SPECIFIC numbers from the match data above (not generic examples)
+5. Be direct and actionable
+6. Provide 2-3 achievements (things done well) and 3-4 improvements (areas to work on)
+7. Compare to lane opponent when relevant
+
 **Your task:**
 1. Analyze the player's performance based on the data above
 2. Compare them to their lane opponent (if available)
-3. Identify specific strengths and weaknesses
-4. Provide actionable recommendations for improvement
+3. Identify 2-3 achievements (things they did well)
+4. Identify 3-4 areas to improve (with specific data)
 5. Be honest and direct - use the data to support your analysis
 
-Respond in English. Be concise but insightful."""
+Respond in English using the format above."""
 
     return system_prompt
 
@@ -296,26 +312,58 @@ def lambda_handler(event, context):
         # 构建消息历史
         messages = []
         
-        # 添加虚拟开场白（如果需要）
-        if not chat_history or chat_history[0].get('role') == 'assistant':
+        # --- [!! 修复角色交替问题 !!] ---
+        # Bedrock API 要求角色必须在 user 和 assistant 之间交替
+        
+        # 检查 chatHistory 是否为空
+        if not chat_history:
+            # 如果没有历史记录，直接使用新问题
             messages.append({
                 "role": "user",
-                "content": [{"type": "text", "text": "Please analyze my match performance."}]
+                "content": [{"type": "text", "text": user_message}]
             })
-        
-        # 添加聊天历史
-        for turn in chat_history:
-            if turn.get('role') in ['user', 'assistant'] and turn.get('content'):
+        else:
+            # 如果有历史记录，检查第一条是否是 assistant
+            if chat_history[0].get('role') == 'assistant':
+                # 注入虚拟用户提示
                 messages.append({
-                    "role": turn['role'],
-                    "content": [{"type": "text", "text": turn['content']}]
+                    "role": "user",
+                    "content": [{"type": "text", "text": "Please analyze my match performance."}]
                 })
-        
-        # 添加新问题
-        messages.append({
-            "role": "user",
-            "content": [{"type": "text", "text": user_message}]
-        })
+            
+            # 附加真实的聊天记录，确保角色交替
+            last_role = None
+            for turn in chat_history:
+                current_role = turn.get('role')
+                content = turn.get('content')
+                
+                # 只添加有效的消息，且确保角色交替
+                if current_role in ['user', 'assistant'] and content:
+                    # 跳过连续相同角色的消息
+                    if current_role != last_role:
+                        messages.append({
+                            "role": current_role,
+                            "content": [{"type": "text", "text": content}]
+                        })
+                        last_role = current_role
+            
+            # 添加新问题，确保不与最后一条消息角色相同
+            if last_role != 'user':
+                messages.append({
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_message}]
+                })
+            else:
+                # 如果最后一条是 user，先添加一个简短的 assistant 响应
+                messages.append({
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "I understand. Please continue."}]
+                })
+                messages.append({
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_message}]
+                })
+        # --- [修复结束] ---
         
         # 调用 Bedrock
         print(f"[Lambda] 正在调用 Bedrock...")

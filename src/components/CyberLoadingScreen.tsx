@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { Search, Globe, ChevronDown, Zap } from 'lucide-react';
+import playerManifest from '../../player_manifest.json';
 
 interface CyberLoadingScreenProps {
   onLoadingComplete?: () => void;
@@ -19,13 +20,14 @@ export function CyberLoadingScreen({
   onDemoMode,
   minLoadingTime = 3000
 }: CyberLoadingScreenProps) {
-  const [progress, setProgress] = useState(0);
   const [currentPhase, setCurrentPhase] = useState(0);
-  const [isAutoLoading, setIsAutoLoading] = useState(false); // 停止自动加载
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
   const [summonerName, setSummonerName] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('EUW');
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // 修复 hydration 错误
   useEffect(() => {
@@ -44,24 +46,11 @@ export function CyberLoadingScreen({
   useEffect(() => {
     if (!isAutoLoading) return;
 
-    const startTime = Date.now();
-    let progressInterval: NodeJS.Timeout;
     let phaseTimeout: NodeJS.Timeout;
     let completionTimeout: NodeJS.Timeout;
 
     const totalPhaseDuration = loadingPhases.reduce((sum, phase) => sum + phase.duration, 0);
     const totalDuration = Math.max(minLoadingTime, totalPhaseDuration);
-
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min((elapsed / totalDuration) * 100, 100);
-      setProgress(newProgress);
-      if (newProgress >= 100) {
-        clearInterval(progressInterval);
-      }
-    };
-
-    progressInterval = setInterval(updateProgress, 50);
 
     let currentTime = 0;
     loadingPhases.forEach((phase, index) => {
@@ -78,7 +67,6 @@ export function CyberLoadingScreen({
     }, totalDuration);
 
     return () => {
-      clearInterval(progressInterval);
       clearTimeout(phaseTimeout);
       clearTimeout(completionTimeout);
     };
@@ -87,6 +75,7 @@ export function CyberLoadingScreen({
   const handleSearch = () => {
     if (!summonerName.trim()) return;
     setIsAutoLoading(false);
+    setShowSuggestions(false);
     if (onSearch) {
       onSearch(summonerName.trim(), selectedRegion);
     }
@@ -102,7 +91,35 @@ export function CyberLoadingScreen({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
     }
+  };
+
+  // 自动补全逻辑
+  const handleInputChange = (value: string) => {
+    setSummonerName(value);
+    
+    if (value.trim().length > 0) {
+      // 从 player_manifest.json 中筛选匹配的玩家名
+      const filtered = playerManifest
+        .filter(player => 
+          player.name.toLowerCase().includes(value.toLowerCase())
+        )
+        .map(player => player.name)
+        .slice(0, 10); // 最多显示10个建议
+      
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (name: string) => {
+    setSummonerName(name);
+    setShowSuggestions(false);
   };
 
   const selectedRegionData = REGIONS.find(r => r.code === selectedRegion) || REGIONS[0];
@@ -292,18 +309,53 @@ export function CyberLoadingScreen({
                   </AnimatePresence>
                 </div>
 
-                {/* Input */}
-                <input
-                  type="text"
-                  value={summonerName}
-                  onChange={(e) => setSummonerName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type summoner name..."
-                  className="flex-1 px-4 py-2 bg-[#0a0e27] border-2 border-[#ff00ff]/40 text-[#fff] placeholder-[#666] font-mono text-sm tracking-wider focus:border-[#ff00ff] focus:outline-none transition-all duration-300"
-                  style={{
-                    boxShadow: summonerName ? '0 0 15px rgba(255, 0, 255, 0.3)' : 'none'
-                  }}
-                />
+                {/* Input with Autocomplete */}
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={summonerName}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => summonerName && suggestions.length > 0 && setShowSuggestions(true)}
+                    placeholder="Type summoner name..."
+                    className="w-full px-4 py-2 bg-[#0a0e27] border-2 border-[#ff00ff]/40 text-[#fff] placeholder-[#666] font-mono text-sm tracking-wider focus:border-[#ff00ff] focus:outline-none transition-all duration-300"
+                    style={{
+                      boxShadow: summonerName ? '0 0 15px rgba(255, 0, 255, 0.3)' : 'none'
+                    }}
+                  />
+                  
+                  {/* Autocomplete Dropdown */}
+                  <AnimatePresence>
+                    {showSuggestions && suggestions.length > 0 && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-[9998]"
+                          onClick={() => setShowSuggestions(false)}
+                        />
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute top-full left-0 right-0 mt-2 bg-[#0a0e27] border-2 border-[#ff00ff] z-[9999] max-h-64 overflow-y-auto"
+                          style={{ boxShadow: '0 0 20px rgba(255, 0, 255, 0.5)' }}
+                        >
+                          {suggestions.map((suggestion, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleSuggestionClick(suggestion)}
+                              className="w-full text-left px-4 py-2 border-b border-[#ff00ff]/20 hover:bg-[#ff00ff]/10 transition-colors text-[#fff] font-mono text-sm"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Search className="w-3 h-3 text-[#ff00ff]" />
+                                <span>{suggestion}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
 
                 {/* Search Button */}
                 <button
@@ -363,31 +415,7 @@ export function CyberLoadingScreen({
           </motion.div>
 
           {/* Manual Selection Prompt */}
-          {!isAutoLoading && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mb-6 p-6 border-2 border-[#00ffff]/30 bg-[#00ffff]/5 text-center"
-            >
-              <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="text-5xl mb-3"
-              >
-                👆
-              </motion.div>
-              <p
-                className="text-[#00ffff] text-lg font-mono uppercase tracking-wider mb-2"
-                style={{ textShadow: '0 0 10px #00ffff' }}
-              >
-                Choose an option to begin
-              </p>
-              <p className="text-[#666] text-sm font-mono">
-                Search for a summoner or explore the demo dashboard
-              </p>
-            </motion.div>
-          )}
+
 
           {/* Auto Loading Section */}
           {isAutoLoading && (
@@ -435,42 +463,16 @@ export function CyberLoadingScreen({
                 </div>
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-3 mb-6">
-                <div className="relative h-6 bg-[#1a1f3a] border-2 border-[#00ffff] overflow-hidden">
+              {/* Loading Status */}
+              <div className="mb-6">
+                <div className="flex items-center justify-center gap-2 text-xs font-mono">
                   <motion.div
-                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#00ffff] via-[#00ffff] to-[#ff00ff]"
-                    style={{
-                      width: `${progress}%`,
-                      boxShadow: '0 0 20px #00ffff, 0 0 40px #00ffff'
-                    }}
-                    transition={{ duration: 0.1 }}
+                    className="w-2 h-2 rounded-full bg-[#00ff00]"
+                    animate={{ opacity: [1, 0.3, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
                   />
-                  <motion.div
-                    className="absolute top-0 bottom-0 w-1 bg-white opacity-80"
-                    animate={{ left: ['0%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-mono text-white relative z-10 mix-blend-difference">
-                      {Math.floor(progress)}%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <div className="flex items-center gap-2">
-                    <motion.div
-                      className="w-2 h-2 rounded-full bg-[#00ff00]"
-                      animate={{ opacity: [1, 0.3, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    />
-                    <span className="text-[#666]">
-                      LOADING: <span className="text-[#00ffff]">{currentPhase + 1}/{loadingPhases.length}</span>
-                    </span>
-                  </div>
                   <span className="text-[#666]">
-                    SYSTEM STATUS: <span className="text-[#00ff00]">ACTIVE</span>
+                    LOADING: <span className="text-[#00ffff]">{currentPhase + 1}/{loadingPhases.length}</span>
                   </span>
                 </div>
               </div>

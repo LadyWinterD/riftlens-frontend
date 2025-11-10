@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Loader2, Globe, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import playerManifest from '../../player_manifest.json';
 
 interface SearchHistory {
   summonerName: string;
@@ -18,15 +19,8 @@ const REGIONS = [
   { code: 'EUW', name: 'EU West', icon: '🌍' }
 ];
 
-// Popular summoner names for autocomplete
-const POPULAR_SUMMONERS = [
-  'Faker', 'Deft', 'Chovy', 'Keria', 'Zeus',
-  'Doublelift', 'Bjergsen', 'Caps', 'Rekkles', 'Perkz',
-  'TheShy', 'Rookie', 'JackeyLove', 'Knight', 'Uzi',
-  'ShowMaker', 'Canyon', 'Ruler', 'BeryL', 'Gumayusi',
-  'Tyler1', 'Yassuo', 'TFBlade', 'IWDominate', 'Sneaky',
-  'Bwipo', 'Jankos', 'Inspired', 'Hans Sama', 'Hylissang'
-];
+// 从数据库获取所有玩家名
+const ALL_PLAYER_NAMES = playerManifest.map(player => player.name);
 
 export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBarProps) {
   const [summonerName, setSummonerName] = useState('');
@@ -86,13 +80,10 @@ export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBar
     if (summonerName.length > 0) {
       const lowerInput = summonerName.toLowerCase();
       
-      // Combine history and popular summoners
-      const historyNames = searchHistory.map(h => h.summonerName);
-      const allNames = Array.from(new Set([...historyNames, ...POPULAR_SUMMONERS]));
-      
-      const filtered = allNames
-        .filter(name => name.toLowerCase().startsWith(lowerInput))
-        .slice(0, 8);
+      // 从数据库的 499 个玩家中筛选
+      const filtered = ALL_PLAYER_NAMES
+        .filter(name => name.toLowerCase().includes(lowerInput))
+        .slice(0, 10); // 最多显示10个建议
       
       setSuggestions(filtered);
       setShowAutocomplete(filtered.length > 0);
@@ -204,9 +195,6 @@ export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBar
               style={{ textShadow: '0 0 10px #ff00ff' }}
             >
               SUMMONER SEARCH
-            </div>
-            <div className="text-[#666] text-xs font-mono whitespace-nowrap">
-              TYPE TO AUTO-COMPLETE
             </div>
           </div>
 
@@ -374,13 +362,13 @@ export function PlayerSearchBar({ onSearch, isLoading = false }: PlayerSearchBar
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{isHistory ? '🕐' : '⭐'}</span>
+                        <span className="text-lg">{isHistory ? '🕐' : '👤'}</span>
                         <span className="text-[#00ffff] font-mono text-sm">
                           {suggestion}
                         </span>
                       </div>
                       <span className="text-[#666] text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                        {isHistory ? 'Recent' : 'Popular'}
+                        {isHistory ? 'Recent' : 'Database'}
                       </span>
                     </button>
                   );

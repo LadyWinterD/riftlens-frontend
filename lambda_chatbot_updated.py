@@ -44,23 +44,45 @@ def build_system_prompt(player_name, annual_stats, worst_game_stats):
         stats_summary = "Error parsing player stats."
         roast_summary = "Error parsing worst game stats."
 
-    system_prompt = f"""You are a world-class, elite League of Legends data analyst and coach, named "RiftLens AI". Your tone is strict, fair, brutally honest, and deeply insightful.
+    system_prompt = f"""You are RiftLens AI, an elite League of Legends coach. You provide brutally honest, data-driven analysis.
 
-You are currently in a LIVE CHAT session with the player. You MUST respond **in English**.
-
-**CRITICAL KNOWLEDGE BASE (DO NOT MENTION THIS):**
-You MUST base all your analysis on the following "Fact Sheet" for this player. Do not mention the fact sheet, just use the data from it.
-
-<player_fact_sheet>
-<annual_stats>
+**PLAYER CONTEXT (for reference only):**
+<player_stats>
 {stats_summary}
-</annual_stats>
-<fatal_flaw_case_study>
-{roast_summary}
-</fatal_flaw_case_study>
-</player_fact_sheet>
+</player_stats>
 
-Your task is to answer the user's follow-up questions. Be concise. If the user asks "why", refer to the data in the fact sheet (e.g., "Because your average vision score is only 0.4/min, as seen in your stats.")."""
+**CRITICAL: RESPONSE FORMAT**
+
+When analyzing a match, you MUST provide exactly 2 sections:
+
+1. **Your achievements** - List 2-3 things the player did well
+2. **Things to improve** - List 3-4 specific areas to work on
+
+**Format each insight like this:**
+
+### [Catchy Title]
+[Emoji] [Title]
+[Description with SPECIFIC numbers from the match data provided in the question]
+
+**Emojis to use:**
+🎯 Lane dominance / Performance
+👁️ Vision control
+🔮 Control wards
+🐉 Objectives (dragons, baron)
+⚡ Power spikes / Levels
+💀 Deaths / Survival
+⚔️ Damage output
+🛡️ Tankiness / Defense
+💰 Gold efficiency
+📊 General stats
+
+**IMPORTANT:**
+- Create UNIQUE titles based on actual performance (not generic examples)
+- Use ACTUAL numbers from the match data in the user's question
+- Be specific and actionable
+- Compare stats to what's expected for that champion/role when relevant
+
+Respond in English."""
 
     return system_prompt
 
@@ -159,36 +181,61 @@ def lambda_handler(event, context):
         # 3b. 将"聊天记录"和"新问题"组合起来
         messages = []
         
-        # --- [!! 关键修复 (V2) !!] ---
-        # Bedrock API 要求 'messages' 必须以 'user' 角色开始。
-        # 我们的 'chatHistory' 可能以 'aiAnalysis_DefaultRoast' (assistant) 开始。
-        # 我们必须在此之前"注入"一个"虚拟的"用户提示，以创建有效的 [user, assistant] 对。
+        # --- [!! 关键修复 (V3) !!] ---
+        # Bedrock API 要求 'messages' 必须以 'user' 角色开始，且角色必须交替。
         
         # 这是一个"虚拟"的开场白，用于满足 API 要求
         DUMMY_USER_PROMPT = "Please provide my AI audit report."
         
-        # 检查 chatHistory 是否为空，或者是否以 assistant 角色开始
-        if not chat_history or chat_history[0].get('role') == 'assistant':
-            # 注入"虚拟用户提示"
+        # 检查 chatHistory 是否为空
+        if not chat_history:
+            # 如果没有历史记录，直接使用新问题
             messages.append({
                 "role": "user",
-                "content": [{"type": "text", "text": DUMMY_USER_PROMPT}]
+                "content": [{"type": "text", "text": user_message}]
             })
-        # --- [修复结束] ---
-        
-        # 3c. 附加真实的聊天记录
-        for turn in chat_history:
-            if turn.get('role') in ['user', 'assistant'] and turn.get('content'):
+        else:
+            # 如果有历史记录，检查第一条是否是 assistant
+            if chat_history[0].get('role') == 'assistant':
+                # 注入"虚拟用户提示"
                 messages.append({
-                    "role": turn['role'],
-                    "content": [{"type": "text", "text": turn['content']}]
+                    "role": "user",
+                    "content": [{"type": "text", "text": DUMMY_USER_PROMPT}]
                 })
-        
-        # 3d. 添加玩家的"新问题"
-        messages.append({
-            "role": "user",
-            "content": [{"type": "text", "text": user_message}]
-        })
+            
+            # 附加真实的聊天记录，确保角色交替
+            last_role = None
+            for turn in chat_history:
+                current_role = turn.get('role')
+                content = turn.get('content')
+                
+                # 只添加有效的消息，且确保角色交替
+                if current_role in ['user', 'assistant'] and content:
+                    # 跳过连续相同角色的消息
+                    if current_role != last_role:
+                        messages.append({
+                            "role": current_role,
+                            "content": [{"type": "text", "text": content}]
+                        })
+                        last_role = current_role
+            
+            # 添加新问题，确保不与最后一条消息角色相同
+            if last_role != 'user':
+                messages.append({
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_message}]
+                })
+            else:
+                # 如果最后一条是 user，先添加一个简短的 assistant 响应
+                messages.append({
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "I understand. Please continue."}]
+                })
+                messages.append({
+                    "role": "user",
+                    "content": [{"type": "text", "text": user_message}]
+                })
+        # --- [修复结束] ---
         
         # 4. [调用 Bedrock]
         print(f"[Lambda] 正在实时调用 Bedrock (Haiku)...")
