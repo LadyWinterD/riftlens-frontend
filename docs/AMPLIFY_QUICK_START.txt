@@ -1,0 +1,81 @@
+================================================================
+                                                              
+        AWS AMPLIFY QUICK START - RIFT REWIND                
+                                                              
+================================================================
+
+WHAT YOU NEED:
+================================================================
+
+1. AWS Account (logged in)
+2. GitHub Repository (code pushed)
+3. API Gateway URL (from AWS Lambda)
+
+================================================================
+
+5-STEP DEPLOYMENT:
+================================================================
+
+STEP 1: Visit Amplify Console
+   >> https://console.aws.amazon.com/amplify/
+
+STEP 2: Create New App
+   - Click "New app" -> "Host web app"
+   - Select "GitHub"
+
+STEP 3: Connect Repository
+   - Authorize AWS Amplify
+   - Select your repository and branch
+
+STEP 4: Configure Environment Variables (IMPORTANT!)
+   Expand "Advanced settings", add:
+   
+   +-------------------------------------------------------+
+   | NEXT_PUBLIC_API_GATEWAY_URL                           |
+   | = https://xxxxx.execute-api.us-east-1.amazonaws.com   |
+   |                                                        |
+   | NEXT_PUBLIC_CHAT_API_URL                              |
+   | = https://xxxxx.execute-api.us-east-1.amazonaws.com   |
+   |                                                        |
+   | NEXT_PUBLIC_AWS_REGION                                |
+   | = us-east-1                                           |
+   +-------------------------------------------------------+
+
+STEP 5: Save and Deploy
+   - Click "Save and deploy"
+   - Wait 3-5 minutes
+   - Done!
+
+================================================================
+
+BUILD TIME: 3-5 minutes
+COST: FREE (free tier)
+AUTO INCLUDES: HTTPS + CDN + Auto Deploy
+
+================================================================
+
+AFTER DEPLOYMENT YOU GET:
+================================================================
+
+- Website URL: https://main.xxxxx.amplifyapp.com
+- Auto CI/CD: Auto deploy on every push
+- Free SSL: Automatic HTTPS
+- Global CDN: Fast access worldwide
+- Monitoring: Real-time status dashboard
+
+================================================================
+
+DETAILED DOCUMENTATION:
+================================================================
+
+- AMPLIFY_DEPLOYMENT.md    - Complete deployment guide
+- AMPLIFY_CHECKLIST.md     - Deployment checklist
+- .env.example             - Environment variables example
+
+================================================================
+
+READY? START DEPLOYING NOW!
+
+>> https://console.aws.amazon.com/amplify/
+
+================================================================
