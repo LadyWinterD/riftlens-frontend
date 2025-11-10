@@ -10,25 +10,25 @@ from decimal import Decimal
 # ✅ V19.5 - 步骤一：配置“AI 生成器”工具
 # ##################################################################
 
-# [ 1. 密钥 ] 100% 把你今天（11 月 5 日）“有效”的 24 小时密钥粘贴到这里！
-RIOT_API_KEY = "RGAPI-70b74c64-f90a-484a-80bc-da838e0b12f6" # 警告！ 100% 必须替换这里！
+# [ 1. 密钥 ]   把你今天（11 月 5 日）“有效”的 24 小时密钥粘贴到这里！
+RIOT_API_KEY = "RGAPI-70b74c64-f90a-484a-80bc-da838e0b12f6" # 警告！   必须替换这里！
 
-# [ 2. 路由 ] 100% 硬编码“欧洲区”！
+# [ 2. 路由 ]   硬编码“欧洲区”！
 RIOT_MATCH_ROUTING = "europe"
 
-# [ 3. 数据库 ] 100% 你的 DynamoDB 表！
+# [ 3. 数据库 ]   你的 DynamoDB 表！
 DYNAMODB_TABLE_NAME = "PlayerReports"
 DYNAMODB_REGION = "ap-southeast-2" # (悉尼！)
 
-# [ 4. AI 成本 ] 我们 100%“离线”生成“默认” AI 报告！
+# [ 4. AI 成本 ] 我们  “离线”生成“默认” AI 报告！
 bedrock_runtime = boto3.client('bedrock-runtime', region_name='ap-southeast-2')
 
-# [ 5. 目标 ] 100% 你的“V19.5 - 499 人花名册”！
+# [ 5. 目标 ]   你的“V19.5 - 499 人花名册”！
 PLAYER_MANIFEST_FILE = "player_manifest.json"
 
 GAMES_TO_ANALYZE_COUNT = 20 # (我们只分析 20 场，确保“预生成”速度！)
 
-# [ 6. API 限速器 ] 100% 尊重 Riot API！
+# [ 6. API 限速器 ]   尊重 Riot API！
 CALLS_PER_PERIOD = 100
 PERIOD_IN_SECONDS = 121 
 call_count = 0
@@ -41,8 +41,8 @@ start_time = time.time()
 def rate_limited_riot_api_call(url):
     """
     [“V19.5 稳赢”的关键！] 
-    这个函数 100% 会“自动”检查我们的 API 调用次数，
-    并在需要时 100%“自动”睡眠 120 秒！
+    这个函数   会“自动”检查我们的 API 调用次数，
+    并在需要时  “自动”睡眠 120 秒！
     """
     global call_count, start_time
     
@@ -51,7 +51,7 @@ def rate_limited_riot_api_call(url):
         if elapsed_time < PERIOD_IN_SECONDS:
             sleep_time = PERIOD_IN_SECONDS - elapsed_time
             print(f"    [AI 生成器] --- 遭遇 API 限速 (100 次 / 2 分钟) ---")
-            print(f"    [AI 生成器] --- 100%“尊重限速”，正在“睡眠” {sleep_time:.2f} 秒... ---")
+            print(f"    [AI 生成器] ---  “尊重限速”，正在“睡眠” {sleep_time:.2f} 秒... ---")
             time.sleep(sleep_time)
         
         call_count = 0
@@ -73,7 +73,7 @@ def rate_limited_riot_api_call(url):
         return None
 
 # ##################################################################
-# ✅ V19.5 - 步骤三：“巨兽”函数（100% 是“本地”的！）
+# ✅ V19.5 - 步骤三：“巨兽”函数（  是“本地”的！）
 # ##################################################################
 
 def get_player_stats_from_match(match_data, target_puuid):
@@ -174,7 +174,7 @@ def call_bedrock(prompt):
 
 
 # ##################################################################
-# ✅ V19.5 - 步骤四：“主”循环 (100% “本地”运行！)
+# ✅ V19.5 - 步骤四：“主”循环 (  “本地”运行！)
 # ##################################################################
 
 def main():
@@ -190,7 +190,7 @@ def main():
         print(f"[V19.5] 成功连接到 DynamoDB 表: {DYNAMODB_TABLE_NAME}")
     except Exception as e:
         print(f"[V19.5] 致命错误: 无法连接到 DynamoDB！ {str(e)}")
-        print("请 100% 确认你已经“登录”了 AWS CLI (aws configure)！")
+        print("请   确认你已经“登录”了 AWS CLI (aws configure)！")
         return
 
     # 2. “读取”花名册
@@ -200,7 +200,7 @@ def main():
         print(f"[V19.5] 成功加载 {len(player_manifest)} 个玩家 (来自 'player_manifest.json')！")
     except Exception as e:
         print(f"[V19.5] 致命错误: 无法读取 'player_manifest.json'！ {str(e)}")
-        print("请 100% 确认你已经“成功运行”了 `crawler.py`（“脚本 #1”）！")
+        print("请   确认你已经“成功运行”了 `crawler.py`（“脚本 #1”）！")
         return
         
     # 3. [V19.5] “主”循环！
@@ -241,7 +241,7 @@ def main():
                     if worst_game is None or player_stats['deaths'] > worst_game['deaths']:
                         worst_game = player_stats
                         
-            time.sleep(1.5) # [“稳赢”的 V18.0 关键！] 100% 必须“慢下来”！
+            time.sleep(1.5) # [“稳赢”的 V18.0 关键！]   必须“慢下来”！
 
         if not all_match_stats:
             print(f"    [AI 生成器] 成功获取比赛 ID，但解析 {player_full_name} 的详情失败。跳过。")
@@ -299,9 +299,9 @@ def main():
             "playerName": player_full_name,
             "expirationTime": expiration_time, 
             "annualStats": annual_stats,
-            "aiAnalysis_DefaultRoast": ai_analysis, # [“V19.5 终极战略”！] 我们 100% 把它命名为“默认”！
+            "aiAnalysis_DefaultRoast": ai_analysis, # [“V19.5 终极战略”！] 我们   把它命名为“默认”！
             "matchHistory": all_match_stats,
-            # (我们 100%“离线”生成了“数据”，但 100%“在线”生成“AI 聊天”！)
+            # (我们  “离线”生成了“数据”，但  “在线”生成“AI 聊天”！)
         }
 
         # 9. [V19.5] “上传”到 DynamoDB（“缓存”）！
@@ -310,9 +310,9 @@ def main():
             print(f"    [AI 生成器] 成功！已将 {player_full_name} 的“超级报告”上传到 DynamoDB！")
         except Exception as e:
             print(f"    [AI 生成器] 致命错误: 无法将 {player_full_name} 的报告上传到 DynamoDB！ {str(e)}")
-            print("    [AI 生成器] （**100%** 是因为 Boto3 没装，或者你的 AWS CLI 没配置！`aws configure`）")
+            print("    [AI 生成器] （** ** 是因为 Boto3 没装，或者你的 AWS CLI 没配置！`aws configure`）")
 
-    print(f"\n--- [V19.5] 100% 完成！ ---")
+    print(f"\n--- [V19.5]   完成！ ---")
     print(f"--- 成功为 {len(player_manifest)} 个玩家生成了“超级数据报告”！ ---")
 
 
@@ -323,7 +323,7 @@ def main():
 if __name__ == "__main__":
     if "xxxx" in RIOT_API_KEY:
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("! 首席工程师！你 100% 必须先在“第 11 行”粘贴你“有效”的 API 密钥！ !")
+        print("! 首席工程师！你   必须先在“第 11 行”粘贴你“有效”的 API 密钥！ !")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     else:
         main()

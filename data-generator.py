@@ -1,8 +1,8 @@
 import json
 import os
 import requests
-# [“V19.6 终极战略”！] 100%“不”导入 BOTO3！
-# [“V19.6 终极战略”！] 100%“不”导入 BEDROCK！
+# [“V19.6 战略”！] “不”导入 BOTO3！
+# [“V19.6 战略”！] “不”导入 BEDROCK！
 import time
 import math
 from decimal import Decimal 
@@ -11,20 +11,20 @@ from decimal import Decimal
 # ✅ V25.0 - 步骤一：配置“数据爬虫”工具
 # ##################################################################
 
-# [ 1. 密钥 ] 100% 把你今天（11 月 6 日）“有效”的 24 小时密钥粘贴到这里！
-RIOT_API_KEY = "RGAPI-e9cba6d3-5530-4e92-af3b-bcd7b974d136" # 警告！ 100% 必须替换这里！
+# [ 1. 密钥 ]  把你今天（11 月 6 日）“有效”的 24 小时密钥粘贴到这里！
+RIOT_API_KEY = "RGAPI-e9cba6d3-5530-4e92-af3b-bcd7b974d136" # 警告！  必须替换这里！
 
-# [ 2. 路由 ] 100% 硬编码“欧洲区”！
+# [ 2. 路由 ]  硬编码“欧洲区”！
 RIOT_MATCH_ROUTING = "europe"
 
-# [ 3. 目标 ] 100% 你的“V19.5 - 499 人花名册”！
+# [ 3. 目标 ]  你的“V19.5 - 499 人花名册”！
 PLAYER_MANIFEST_FILE = "player_manifest.json"
-# [ 4. 输出 ] 100% 我们的“本地数据缓存”！
+# [ 4. 输出 ]  我们的“本地数据缓存”！
 OUTPUT_DATA_FILE = "all_player_data.json"
 
 GAMES_TO_ANALYZE_COUNT = 20 
 
-# [ 5. API 限速器 ] 100% 尊重 Riot API！
+# [ 5. API 限速器 ]  尊重 Riot API！
 CALLS_PER_PERIOD = 100
 PERIOD_IN_SECONDS = 121 
 call_count = 0
@@ -37,8 +37,8 @@ start_time = time.time()
 def rate_limited_riot_api_call(url):
     """
     [“V19.6 稳赢”的关键！] 
-    这个函数 100% 会“自动”检查我们的 API 调用次数，
-    并在需要时 100%“自动”睡眠 120 秒！
+    这个函数  会“自动”检查我们的 API 调用次数，
+    并在需要时 “自动”睡眠 120 秒！
     """
     global call_count, start_time
     
@@ -47,7 +47,7 @@ def rate_limited_riot_api_call(url):
         if elapsed_time < PERIOD_IN_SECONDS:
             sleep_time = PERIOD_IN_SECONDS - elapsed_time
             print(f"    [数据爬虫] --- 遭遇 API 限速 (100 次 / 2 分钟) ---")
-            print(f"    [数据爬虫] --- 100%“尊重限速”，正在“睡眠” {sleep_time:.2f} 秒... ---")
+            print(f"    [数据爬虫] --- “尊重限速”，正在“睡眠” {sleep_time:.2f} 秒... ---")
             time.sleep(sleep_time)
         
         call_count = 0
@@ -69,7 +69,7 @@ def rate_limited_riot_api_call(url):
         return None
 
 # ##################################################################
-# ✅ V25.0 - 步骤三：“巨兽”函数（100%“V25.0 修复版”！）
+# ✅ V25.0 - 步骤三：“巨兽”函数（“V25.0 修复版”！）
 # ##################################################################
 
 def get_player_stats_from_match(match_data, target_puuid):
@@ -81,7 +81,7 @@ def get_player_stats_from_match(match_data, target_puuid):
                 game_duration_sec = match_data.get('info', {}).get('gameDuration', 1)
                 game_duration_min = game_duration_sec / 60
                 
-                # [“V25.0 终极修复”！] 100% 包含了你“刚问”的“召唤师技能”！
+                # [“V25.0 修复”！]  包含了你“刚问”的“召唤师技能”！
                 stats = {
                     "matchId": match_data.get('metadata', {}).get('matchId'),
                     "win": player.get('win', False),
@@ -94,7 +94,7 @@ def get_player_stats_from_match(match_data, target_puuid):
                     "gold": player.get('goldEarned', 0),
                     "damage": player.get('totalDamageDealtToChampions', 0),
                     "position": player.get('teamPosition', 'UNKNOWN'),
-                    # [V19.6] 100% 要把“浮点数”转换成“字符串”，JSON 才 100% 不会出错！
+                    # [V19.6]  要把“浮点数”转换成“字符串”，JSON 才  不会出错！
                     "csPerMin": f"{(player.get('totalMinionsKilled', 0) + player.get('neutralMinionsKilled', 0)) / game_duration_min:.2f}",
                     "visionPerMin": f"{player.get('visionScore', 0) / game_duration_min:.2f}",
                     "kda": f"{(player.get('kills', 0) + player.get('assists', 0)) / max(1, player.get('deaths', 0)):.2f}",
@@ -114,7 +114,7 @@ def get_player_stats_from_match(match_data, target_puuid):
         return None
 
 # ##################################################################
-# ✅ V25.0 - 步骤四：“主”循环 (100% “本地”运行！)
+# ✅ V25.0 - 步骤四：“主”循环 ( “本地”运行！)
 # ##################################################################
 
 def main():
@@ -130,7 +130,7 @@ def main():
         print(f"[V25.0] 成功加载 {len(player_manifest)} 个玩家 (来自 'player_manifest.json')！")
     except Exception as e:
         print(f"[V25.0] 致命错误: 无法读取 'player_manifest.json'！ {str(e)}")
-        print("请 100% 确认你已经“成功运行”了 `crawler.py`（“脚本 #1”）！")
+        print("请  确认你已经“成功运行”了 `crawler.py`（“脚本 #1”）！")
         return
     
     # 2. [V25.0] 我们的“本地数据缓存”！
@@ -165,13 +165,13 @@ def main():
             if not match_data:
                 continue 
 
-            # [V25.0] 100% 调用“新”的（带“召唤师技能”）“巨兽”函数！
+            # [V25.0]  调用“新”的（带“召唤师技能”）“巨兽”函数！
             player_stats = get_player_stats_from_match(match_data, player_puuid)
             
             if player_stats:
                 all_match_stats.append(player_stats)
                         
-            time.sleep(1.5) # [“稳赢”的 V18.0 关键！] 100% 必须“慢下来”！
+            time.sleep(1.5) # [“稳赢”的 V18.0 关键！]  必须“慢下来”！
 
         if not all_match_stats:
             print(f"    [数据爬虫] 成功获取比赛 ID，但解析 {player_full_name} 的详情失败。跳过。")
@@ -219,7 +219,7 @@ def main():
             "PlayerID": player_puuid, 
             "playerName": player_full_name,
             "annualStats": annual_stats,
-            "matchHistory": all_match_stats, # (100% 包含了“召唤师技能”！)
+            "matchHistory": all_match_stats, # ( 包含了“召唤师技能”！)
         }
 
         # 8. [V25.0] “保存”到“本地缓存”！
@@ -230,9 +230,9 @@ def main():
     try:
         with open(OUTPUT_DATA_FILE, "w", encoding='utf-8') as f:
             json.dump(all_player_data, f, indent=2, ensure_ascii=False)
-        print(f"\n--- [V25.0] 100% 完成！ ---")
+        print(f"\n--- [V25.0]  完成！ ---")
         print(f"--- 成功为 {len(all_player_data)} / {len(player_manifest)} 个玩家生成了“数据报告”！ ---")
-        print(f"--- 你的“本地数据缓存” 100% 已经保存到 '{OUTPUT_DATA_FILE}'！ ---")
+        print(f"--- 你的“本地数据缓存”  已经保存到 '{OUTPUT_DATA_FILE}'！ ---")
     except Exception as e:
         print(f"[V25.0] 致命错误: 无法保存 '{OUTPUT_DATA_FILE}'！ {str(e)}")
 
@@ -244,7 +244,7 @@ def main():
 if __name__ == "__main__":
     if "xxxx" in RIOT_API_KEY:
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("! 首席工程师！你 100% 必须先在“第 11 行”粘贴你“有效”的 API 密钥！ !")
+        print("! 首席工程师！你  必须先在“第 11 行”粘贴你“有效”的 API 密钥！ !")
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     else:
         main()
